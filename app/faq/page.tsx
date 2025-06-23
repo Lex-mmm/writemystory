@@ -19,7 +19,7 @@ export default function FaqPage() {
       answer: (
         <div>
           <p>Absoluut! Onze LLM-modellen draaien standalone in een afgeschermde omgeving – denk aan Fort Knox, maar dan voor je levensverhaal. We hebben zelfs succesvolle tests gedaan met medische gegevens, en die zijn zo privé dat zelfs je dokter er een geheimhoudingsverklaring voor moet tekenen.</p>
-          <p className="mt-2">Je verhaal is veiliger bij ons dan dat chocoladekoekje dat je verstopt in de bovenste la voor "noodgevallen".</p>
+          <p className="mt-2">Je verhaal is veiliger bij ons dan dat chocoladekoekje dat je verstopt in de bovenste la voor &quot;noodgevallen&quot;.</p>
         </div>
       ),
       category: 'security'
@@ -37,7 +37,7 @@ export default function FaqPage() {
       question: "Hoe worden mijn gegevens beschermd?",
       answer: (
         <div>
-          <p>We beschermen je data met militair-grade encryptie, afgeschermde standalone AI-modellen, en een virtueel fort van beveiligingsprotocollen. Onze veiligheidsmaatregelen zijn zo robuust dat we zelfs gevoelige medische gegevens kunnen verwerken zonder privacyrisico's.</p>
+          <p>We beschermen je data met militair-grade encryptie, afgeschermde standalone AI-modellen, en een virtueel fort van beveiligingsprotocollen. Onze veiligheidsmaatregelen zijn zo robuust dat we zelfs gevoelige medische gegevens kunnen verwerken zonder privacyrisico&apos;s.</p>
           <p className="mt-2">Bovendien blijven je gegevens in Nederland en worden ze verwerkt volgens de strengste GDPR-normen. Zeg maar gedag tegen dataminers en hallo tegen gemoedsrust.</p>
         </div>
       ),
@@ -47,7 +47,7 @@ export default function FaqPage() {
       question: "Wat als ik een saaie schrijfstijl heb?",
       answer: (
         <div>
-          <p>Dan ben je in goed gezelschap! Hemingway schreef ook "De kat zat op de mat" voordat hij zijn stijl vond. Onze AI zal je verhaal omtoveren tot een meesterwerk, zelfs als je berichten meestal bestaan uit "ok" en duimpjes-emoji's.</p>
+          <p>Dan ben je in goed gezelschap! Hemingway schreef ook &quot;De kat zat op de mat&quot; voordat hij zijn stijl vond. Onze AI zal je verhaal omtoveren tot een meesterwerk, zelfs als je berichten meestal bestaan uit &quot;ok&quot; en duimpjes-emoji&apos;s.</p>
         </div>
       ),
       category: 'funny'
@@ -57,7 +57,7 @@ export default function FaqPage() {
       answer: (
         <div>
           <p>Absoluut niet! In tegenstelling tot sommige tech-giganten die niet genoemd zullen worden (kuch, kuch), gebruiken wij je verhalen NOOIT voor het trainen van onze modellen. Je verhaal blijft van jou.</p>
-          <p className="mt-2">Onze LLM-modellen draaien in een volledig geïsoleerde omgeving zonder externe verbindingen. Je verhaal wordt verwerkt, opgeslagen in jouw beveiligde account, en dat is het. Geen datamining, geen trainingsgebruik, geen "voor verbetering van onze diensten". Beloofd.</p>
+          <p className="mt-2">Onze LLM-modellen draaien in een volledig geïsoleerde omgeving zonder externe verbindingen. Je verhaal wordt verwerkt, opgeslagen in jouw beveiligde account, en dat is het. Geen datamining, geen trainingsgebruik, geen &quot;voor verbetering van onze diensten&quot;. Beloofd.</p>
         </div>
       ),
       category: 'security'
@@ -66,7 +66,7 @@ export default function FaqPage() {
       question: "Hoe weet ik zeker dat jullie AI mijn stijl kan nabootsen?",
       answer: (
         <div>
-          <p>Onze AI is zo goed in het nabootsen van schrijfstijlen dat we een weddenschap zijn aangegaan met Shakespeare's geest. Tot nu toe heeft hij nog niet gereageerd, wat we beschouwen als een overwinning.</p>
+          <p>Onze AI is zo goed in het nabootsen van schrijfstijlen dat we een weddenschap zijn aangegaan met Shakespeare&apos;s geest. Tot nu toe heeft hij nog niet gereageerd, wat we beschouwen als een overwinning.</p>
         </div>
       ),
       category: 'funny'
@@ -86,7 +86,7 @@ export default function FaqPage() {
       answer: (
         <div>
           <p>Met meer voorzichtigheid dan een kat die over een net gewaxte vloer loopt. We hebben onze beveiligingssystemen getest met medische gegevens (de heilige graal van privacygevoelige informatie) en ze met vlag en wimpel laten slagen.</p>
-          <p className="mt-2">Alle gevoelige informatie wordt versleuteld opgeslagen, alleen toegankelijk voor jou en de personen die jij expliciet toestemming geeft. Onze standalone LLM-modellen hebben geen toegang tot het internet en kunnen dus geen gegevens "lekken".</p>
+          <p className="mt-2">Alle gevoelige informatie wordt versleuteld opgeslagen, alleen toegankelijk voor jou en de personen die jij expliciet toestemming geeft. Onze standalone LLM-modellen hebben geen toegang tot het internet en kunnen dus geen gegevens &quot;lekken&quot;.</p>
         </div>
       ),
       category: 'security'
@@ -105,7 +105,7 @@ export default function FaqPage() {
       answer: (
         <div>
           <p>Onze LLM-modellen zijn speciaal ontwikkeld voor privacy. Ze draaien in een beveiligde, offline omgeving zonder toegang tot het internet of externe diensten. Hetzelfde systeem is gevalideerd voor gebruik met patiëntgegevens in de gezondheidszorg, waar de privacyeisen nog strenger zijn.</p>
-          <p className="mt-2">We bewaren niets permanent tenzij jij dat wilt, en zelfs dan alleen in jouw beveiligde account. We hebben een streng "need-to-know" beleid, wat betekent dat zelfs ons team beperkte toegang heeft tot jouw verhaal.</p>
+          <p className="mt-2">We bewaren niets permanent tenzij jij dat wilt, en zelfs dan alleen in jouw beveiligde account. We hebben een streng &quot;need-to-know&quot; beleid, wat betekent dat zelfs ons team beperkte toegang heeft tot jouw verhaal.</p>
         </div>
       ),
       category: 'technical'
@@ -114,7 +114,7 @@ export default function FaqPage() {
       question: "Mijn oma snapt niks van technologie. Kan zij dit ook gebruiken?",
       answer: (
         <div>
-          <p>Als je oma kan praten of typen, dan kan ze dit gebruiken! We hebben het systeem zo simpel gemaakt dat zelfs mensen die denken dat "de cloud" alleen over het weer gaat, er probleemloos mee kunnen werken.</p>
+          <p>Als je oma kan praten of typen, dan kan ze dit gebruiken! We hebben het systeem zo simpel gemaakt dat zelfs mensen die denken dat &quot;de cloud&quot; alleen over het weer gaat, er probleemloos mee kunnen werken.</p>
           <p className="mt-2">Ze kan gewoon vragen beantwoorden via WhatsApp, telefoon, of zelfs handgeschreven brieven (die wij dan digitaliseren). Geen technische kennis vereist, beloofd.</p>
         </div>
       ),
