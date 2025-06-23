@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Navigation from "../../components/Navigation";
 import Footer from "../../components/Footer";
 import ProtectedRoute from "../../components/ProtectedRoute";
@@ -21,7 +21,6 @@ interface Project {
 
 export default function DashboardPage() {
   const { user, getIdToken } = useAuth();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const projectCreated = searchParams.get("projectCreated");
   const projectId = searchParams.get("projectId");
@@ -210,7 +209,7 @@ export default function DashboardPage() {
               Je hebt nog geen projecten
             </h2>
             <p className="text-gray-600 max-w-md mx-auto mb-6">
-              Begin je eerste project door op de knop "Nieuw project" te klikken en doorloop de setup-stappen.
+              Begin je eerste project door op de knop &quot;Nieuw project&quot; te klikken en doorloop de setup-stappen.
             </p>
             <Link
               href="/start"

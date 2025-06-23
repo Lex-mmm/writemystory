@@ -39,9 +39,9 @@ export default function HowItWorksPage() {
           </div>
 
           <div>
-            <h2 className="text-xl font-semibold text-gray-800">4. Voeg gemakkelijk foto's toe</h2>
+            <h2 className="text-xl font-semibold text-gray-800">4. Voeg gemakkelijk foto&apos;s toe</h2>
             <p className="text-gray-700">
-              Upload eenvoudig foto's per hoofdstuk of als collage. Wij zorgen dat ze op de juiste plek in het verhaal terechtkomen.
+              Upload eenvoudig foto&apos;s per hoofdstuk of als collage. Wij zorgen dat ze op de juiste plek in het verhaal terechtkomen.
             </p>
           </div>
 

@@ -83,7 +83,7 @@ export default function StartPage() {
       }
 
       // First try using the local API endpoint
-      let apiUrl = '/api/stories';
+      const apiUrl = '/api/stories';
       
       const token = await getIdToken();
       const headers: Record<string, string> = {
@@ -317,7 +317,7 @@ export default function StartPage() {
               onChange={() => setCollaborators({...collaborators, friends: !collaborators.friends})}
               className="h-4 w-4 text-blue-600 rounded"
             />
-            <label htmlFor="friends" className="text-gray-700">Vrienden / collega's</label>
+            <label htmlFor="friends" className="text-gray-700">Vrienden / collega&apos;s</label>
           </div>
         </div>
         
@@ -360,7 +360,7 @@ export default function StartPage() {
   const renderStep3 = () => {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">3. Welke periode of thema's wil je vastleggen?</h2>
+        <h2 className="text-xl font-semibold mb-4">3. Welke periode of thema&apos;s wil je vastleggen?</h2>
         
         <div className="space-y-4 mb-6">
           <div className="flex items-center space-x-2">
@@ -740,7 +740,7 @@ export default function StartPage() {
           <div className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
             <h3 className="font-medium text-blue-800">Media toevoegen</h3>
             <p className="text-blue-700 mt-1">
-              Voeg eenvoudig foto's en video's toe aan je verhaal om het persoonlijker te maken.
+              Voeg eenvoudig foto&apos;s en video&apos;s toe aan je verhaal om het persoonlijker te maken.
             </p>
           </div>
         </div>

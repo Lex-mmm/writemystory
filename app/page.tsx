@@ -154,7 +154,7 @@ export default function HomePage() {
                 </div>
               </div>
               <p className="text-gray-600">
-                "Mijn oma van 92 is helemaal niet digitaal vaardig, maar via WhatsApp kon ze toch haar hele levensverhaal met ons delen. Het boek is nu een kostbaar familiebezit."
+                &quot;Mijn oma van 92 is helemaal niet digitaal vaardig, maar via WhatsApp kon ze toch haar hele levensverhaal met ons delen. Het boek is nu een kostbaar familiebezit.&quot;
               </p>
             </div>
 
@@ -169,7 +169,7 @@ export default function HomePage() {
                 </div>
               </div>
               <p className="text-gray-600">
-                "Ik wilde mijn levensverhaal vastleggen voor mijn kinderen, maar kwam nooit aan schrijven toe. Deze aanpak werkte perfect voor mij."
+                &quot;Ik wilde mijn levensverhaal vastleggen voor mijn kinderen, maar kwam nooit aan schrijven toe. Deze aanpak werkte perfect voor mij.&quot;
               </p>
             </div>
 
@@ -184,7 +184,7 @@ export default function HomePage() {
                 </div>
               </div>
               <p className="text-gray-600">
-                "Mijn vader vertelde altijd zoveel verhalen. We wisten niet hoe we ze moesten vastleggen tot we WriteMyStory vonden. Nu hebben we alles in een prachtig boek."
+                &quot;Mijn vader vertelde altijd zoveel verhalen. We wisten niet hoe we ze moesten vastleggen tot we WriteMyStory vonden. Nu hebben we alles in een prachtig boek.&quot;
               </p>
             </div>
           </div>

@@ -10,7 +10,7 @@ function generateId() {
 }
 
 // In-memory store for testing purposes
-let projectStore: Record<string, any> = {};
+const projectStore: Record<string, Record<string, unknown>> = {};
 
 export async function POST(request: Request) {
   try {
@@ -89,8 +89,12 @@ export async function GET(request: Request) {
     
     // Get all projects for this user from our in-memory store
     const userProjects = Object.values(projectStore)
-      .filter((project: any) => project.userId === userId)
-      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .filter((project: Record<string, unknown>) => project.userId === userId)
+      .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+        const dateA = new Date(a.createdAt as string).getTime();
+        const dateB = new Date(b.createdAt as string).getTime();
+        return dateB - dateA;
+      });
     
     // If we have projects for this user, return them
     if (userProjects.length > 0) {
