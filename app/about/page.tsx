@@ -54,7 +54,7 @@ export default function AboutPage() {
             
             <div className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500 my-6">
               <p className="text-blue-700 italic">
-                "In mijn werk in de gezondheidszorg zie ik dagelijks wat technologie kan betekenen. Mijn collega's ontwikkelden daar al een AI-model dat veilig en betrouwbaar medische brieven opstelt. Diezelfde techniek — slim, ondersteunend en betrouwbaar — inspireerde mij om iets te bouwen dat mensen helpt hun eigen verhaal te vertellen."
+                &quot;In mijn werk in de gezondheidszorg zie ik dagelijks wat technologie kan betekenen. Mijn collega&apos;s ontwikkelden daar al een AI-model dat veilig en betrouwbaar medische brieven opstelt. Diezelfde techniek — slim, ondersteunend en betrouwbaar — inspireerde mij om iets te bouwen dat mensen helpt hun eigen verhaal te vertellen.&quot;
               </p>
             </div>
             

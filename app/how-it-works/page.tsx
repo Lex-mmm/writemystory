@@ -2,7 +2,6 @@
 
 import Navigation from '../../components/Navigation';
 import Footer from '../../components/Footer';
-import Image from 'next/image';
 import Link from 'next/link';
 
 export default function HowItWorksPage() {
@@ -68,7 +67,7 @@ export default function HowItWorksPage() {
                 </p>
                 <div className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
                   <p className="text-blue-700 italic">
-                    "Ik vind het heerlijk dat ik mijn verhaal gewoon kan vertellen via spraakberichten terwijl ik door het bos wandel. Geen laptop, geen toetsenbord, gewoon praten." — Sandra, 58
+                    &quot;Ik vind het heerlijk dat ik mijn verhaal gewoon kan vertellen via spraakberichten terwijl ik door het bos wandel. Geen laptop, geen toetsenbord, gewoon praten.&quot; — Sandra, 58
                   </p>
                 </div>
               </div>
@@ -184,3 +183,4 @@ export default function HowItWorksPage() {
     </div>
   );
 }
+
