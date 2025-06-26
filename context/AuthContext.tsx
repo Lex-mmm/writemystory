@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { Session, User } from "@supabase/supabase-js";
 
 interface AuthContextType {
@@ -33,6 +33,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const setupAuth = async () => {
       try {
+        // Check if Supabase is configured
+        if (!isSupabaseConfigured()) {
+          setConnectionError("Authentication service is not configured. Please contact support.");
+          setIsLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '../../../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../../../lib/supabase';
 
 // Helper function to set user context for RLS
 async function setUserContext(userId: string) {
@@ -16,6 +16,12 @@ async function setUserContext(userId: string) {
 }
 
 export async function GET(request: NextRequest) {
+  // Check if Supabase is properly configured
+  if (!isSupabaseConfigured()) {
+    console.error('Supabase not configured properly');
+    return NextResponse.json({ error: 'Database service unavailable' }, { status: 503 });
+  }
+
   const { searchParams } = new URL(request.url);
   const storyId = searchParams.get('storyId');
   const userId = searchParams.get('userId');
@@ -69,6 +75,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Check if Supabase is properly configured
+  if (!isSupabaseConfigured()) {
+    console.error('Supabase not configured properly');
+    return NextResponse.json({ error: 'Database service unavailable' }, { status: 503 });
+  }
+
   try {
     const body = await request.json();
     const { storyId, userId, type } = body;

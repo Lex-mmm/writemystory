@@ -2,33 +2,40 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Create a single supabase client for interacting with your database
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
 
-// Add more robust error handling and validation
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables. Please check your configuration.');
-  // Don't throw an error during build time, just log it
+// Check if we're in a build environment
+const isBuild = process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  if (!isBuild) {
+    console.error('Missing Supabase environment variables. Please check your configuration.');
+  }
 }
 
+// Create client with fallback values for build time
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
-    // Enable automatic refresh of tokens on both client and server
-    autoRefreshToken: true
+    persistSession: !isBuild,
+    autoRefreshToken: !isBuild
   },
   global: {
-    // Add additional headers if needed for CORS or debugging
     headers: {
       'x-application-name': 'writemystory-frontend'
     }
   }
 });
 
+// Add a function to check if Supabase is properly configured
+export function isSupabaseConfigured(): boolean {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+}
+
 // Add a simple connection check function
 export async function checkSupabaseConnection() {
   try {
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!isSupabaseConfigured()) {
       console.error('Supabase credentials not configured');
       return false;
     }
