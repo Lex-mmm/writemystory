@@ -8,6 +8,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 // Add more robust error handling and validation
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables. Please check your configuration.');
+  // Don't throw an error during build time, just log it
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -27,6 +28,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 // Add a simple connection check function
 export async function checkSupabaseConnection() {
   try {
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('Supabase credentials not configured');
+      return false;
+    }
+
     // Simple query to check connection - try projects table first
     const { error } = await supabase.from('projects').select('id').limit(1);
     

@@ -3,11 +3,16 @@ import { supabase } from '../../../lib/supabase';
 
 // Helper function to set user context for RLS
 async function setUserContext(userId: string) {
-  await supabase.rpc('set_config', {
-    setting_name: 'app.current_user_id',
-    setting_value: userId,
-    is_local: true
-  });
+  try {
+    await supabase.rpc('set_config', {
+      setting_name: 'app.current_user_id',
+      setting_value: userId,
+      is_local: true
+    });
+  } catch (error) {
+    console.error('Error setting user context:', error);
+    // Don't throw, just log the error
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -299,6 +304,7 @@ async function updateStoryProgress(storyId: string) {
 
   } catch (error) {
     console.error('Error updating story progress:', error);
+    // Don't throw, just log the error
   }
 }
 
@@ -307,24 +313,29 @@ async function sendQuestionsViaEmail(userId: string, storyId: string, questions:
   question: string;
   category: string;
 }>) {
-  // In production, implement actual email sending
-  console.log(`Sending ${questions.length} questions via email for story ${storyId} to user ${userId}`);
-  
-  // Generate the email HTML content
-  const emailHtml = generateQuestionEmail(questions, storyId);
-  
-  console.log('Email would be sent with content length:', emailHtml.length);
-  
-  // Here you would integrate with your email service (SendGrid, Mailgun, etc.)
-  // Example implementation:
-  // const emailService = new EmailService();
-  // await emailService.send({
-  //   to: getUserEmail(userId),
-  //   subject: 'Nieuwe vragen voor je levensverhaal',
-  //   html: emailHtml
-  // });
-  
-  return Promise.resolve(true);
+  try {
+    // In production, implement actual email sending
+    console.log(`Sending ${questions.length} questions via email for story ${storyId} to user ${userId}`);
+    
+    // Generate the email HTML content
+    const emailHtml = generateQuestionEmail(questions, storyId);
+    
+    console.log('Email would be sent with content length:', emailHtml.length);
+    
+    // Here you would integrate with your email service (SendGrid, Mailgun, etc.)
+    // Example implementation:
+    // const emailService = new EmailService();
+    // await emailService.send({
+    //   to: getUserEmail(userId),
+    //   subject: 'Nieuwe vragen voor je levensverhaal',
+    //   html: emailHtml
+    // });
+    
+    return Promise.resolve(true);
+  } catch (error) {
+    console.error('Error in sendQuestionsViaEmail:', error);
+    return Promise.resolve(false);
+  }
 }
 
 function generateQuestionEmail(questions: Array<{
@@ -332,56 +343,63 @@ function generateQuestionEmail(questions: Array<{
   question: string;
   category: string;
 }>, storyId: string) {
-  const questionsList = questions.slice(0, 3).map((q, index) => `
-    <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px;">
-      <h3 style="color: #2563eb; margin-bottom: 10px;">Vraag ${index + 1}</h3>
-      <p style="font-size: 16px; line-height: 1.5;">${q.question}</p>
-      <a href="${process.env.NEXT_PUBLIC_SITE_URL}/answer?questionId=${q.id}&storyId=${storyId}" 
-         style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">
-        Beantwoord deze vraag
-      </a>
-    </div>
-  `).join('');
-
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>Nieuwe vragen voor je verhaal</title>
-    </head>
-    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <h1 style="color: #2563eb;">Tijd voor nieuwe verhalen! 📚</h1>
-      
-      <p>Hallo! Je verhaal groeit mooi en we hebben een paar nieuwe vragen voor je.</p>
-      
-      <p>Je kunt de vragen beantwoorden door simpelweg te antwoorden op deze e-mail, of door op de knoppen hieronder te klikken:</p>
-      
-      ${questionsList}
-      
-      <div style="margin-top: 30px; padding: 20px; background-color: #eff6ff; border-radius: 8px;">
-        <h3 style="color: #1d4ed8;">💡 Tips voor het beantwoorden:</h3>
-        <ul style="line-height: 1.6;">
-          <li>Neem de tijd - er is geen haast</li>
-          <li>Vertel zoveel of zo weinig als je wilt</li>
-          <li>Je kunt altijd later nog details toevoegen</li>
-          <li>Antwoord gewoon via reply op deze e-mail</li>
-        </ul>
-      </div>
-      
-      <p style="margin-top: 30px;">
-        <a href="${process.env.NEXT_PUBLIC_SITE_URL}/project/${storyId}" 
-           style="display: inline-block; background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">
-          Bekijk je volledige verhaal
+  try {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://writemystory.ai';
+    
+    const questionsList = questions.slice(0, 3).map((q, index) => `
+      <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px;">
+        <h3 style="color: #2563eb; margin-bottom: 10px;">Vraag ${index + 1}</h3>
+        <p style="font-size: 16px; line-height: 1.5;">${q.question}</p>
+        <a href="${siteUrl}/answer?questionId=${q.id}&storyId=${storyId}" 
+           style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">
+          Beantwoord deze vraag
         </a>
-      </p>
-      
-      <p style="margin-top: 20px; color: #6b7280; font-size: 14px;">
-        Met vriendelijke groet,<br>
-        Het WriteMyStory.ai team
-      </p>
-    </body>
-    </html>
-  `;
+      </div>
+    `).join('');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Nieuwe vragen voor je verhaal</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #2563eb;">Tijd voor nieuwe verhalen! 📚</h1>
+        
+        <p>Hallo! Je verhaal groeit mooi en we hebben een paar nieuwe vragen voor je.</p>
+        
+        <p>Je kunt de vragen beantwoorden door simpelweg te antwoorden op deze e-mail, of door op de knoppen hieronder te klikken:</p>
+        
+        ${questionsList}
+        
+        <div style="margin-top: 30px; padding: 20px; background-color: #eff6ff; border-radius: 8px;">
+          <h3 style="color: #1d4ed8;">💡 Tips voor het beantwoorden:</h3>
+          <ul style="line-height: 1.6;">
+            <li>Neem de tijd - er is geen haast</li>
+            <li>Vertel zoveel of zo weinig als je wilt</li>
+            <li>Je kunt altijd later nog details toevoegen</li>
+            <li>Antwoord gewoon via reply op deze e-mail</li>
+          </ul>
+        </div>
+        
+        <p style="margin-top: 30px;">
+          <a href="${siteUrl}/project/${storyId}" 
+             style="display: inline-block; background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">
+            Bekijk je volledige verhaal
+          </a>
+        </p>
+        
+        <p style="margin-top: 20px; color: #6b7280; font-size: 14px;">
+          Met vriendelijke groet,<br>
+          Het WriteMyStory.ai team
+        </p>
+      </body>
+      </html>
+    `;
+  } catch (error) {
+    console.error('Error generating email HTML:', error);
+    return '<p>Error generating email content</p>';
+  }
 }
 
