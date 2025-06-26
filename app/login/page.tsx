@@ -1,9 +1,10 @@
 // app/login/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../context/AuthContext";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -12,6 +13,14 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { connectionError } = useAuth();
+
+  useEffect(() => {
+    // Display connection error if present
+    if (connectionError) {
+      setErrorMsg(connectionError);
+    }
+  }, [connectionError]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,13 +34,22 @@ export default function LoginPage() {
       });
 
       if (error) {
-        setErrorMsg(error.message);
+        // Handle different error types more gracefully
+        if (error.message.includes("Failed to fetch")) {
+          setErrorMsg(
+            "Connection to authentication server failed. Please check your internet connection and try again."
+          );
+        } else {
+          setErrorMsg(error.message);
+        }
       } else {
         router.push("/dashboard");
       }
     } catch (err) {
-      setErrorMsg("Er is een fout opgetreden bij het inloggen.");
-      console.error(err);
+      console.error("Login error:", err);
+      setErrorMsg(
+        "Er is een fout opgetreden bij het inloggen. Controleer je internetverbinding en probeer het opnieuw."
+      );
     } finally {
       setIsLoading(false);
     }

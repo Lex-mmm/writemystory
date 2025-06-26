@@ -6,253 +6,315 @@ import Navigation from "../../../components/Navigation";
 import Footer from "../../../components/Footer";
 import ProtectedRoute from "../../../components/ProtectedRoute";
 import { useAuth } from "../../../context/AuthContext";
+import QuestionCard from "@/components/QuestionCard";
 import Link from "next/link";
+import { supabase } from "../../../lib/supabase";
+import ProgressVisualization from "../../../components/ProgressVisualization";
 
-interface ProjectDetails {
+interface Question {
   id: string;
-  personName: string;
-  subjectType: string;
-  periodType: string;
-  writingStyle: string;
-  createdAt: string;
+  story_id: string;
+  category: string;
+  question: string;
+  type: string;
+  status: 'pending' | 'answered';
+  created_at: string;
+  answeredAt?: string;
+  priority: number;
+  answer?: string;
+}
+
+interface Project {
+  id: string;
+  person_name: string;
+  subject_type: string;
+  period_type: string;
+  writing_style: string;
+  created_at: string;
   status: string;
   progress?: number;
+  progress_detail?: any;
 }
 
 export default function ProjectPage() {
-  const { id } = useParams();
+  const params = useParams();
   const { user, getIdToken } = useAuth();
-  const [project, setProject] = useState<ProjectDetails | null>(null);
+  const [project, setProject] = useState<Project | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchProject = async () => {
-      if (!user || !id) return;
-      
-      try {
-        setIsLoading(true);
-        
-        // First check localStorage for the project
-        const localProjectData = localStorage.getItem(`story-${id}`);
-        
-        if (localProjectData) {
-          try {
-            const localProject = JSON.parse(localProjectData);
-            setProject(localProject);
-            setIsLoading(false);
-            return;
-          } catch (e) {
-            console.error("Error parsing local project data:", e);
-          }
-        }
-        
-        // If not in localStorage, try to fetch from API
-        const token = await getIdToken();
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json"
-        };
-        
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-        
-        const response = await fetch(`/api/stories?id=${id}`, { headers });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setProject(data);
-          
-          // Save to localStorage for future use
-          localStorage.setItem(`story-${id}`, JSON.stringify(data));
-        } else {
-          // Fallback to mock project
-          const mockProject: ProjectDetails = {
-            id: id as string,
-            personName: "Mijn verhaal",
-            subjectType: "self",
-            periodType: "fullLife",
-            writingStyle: "isaacson",
-            createdAt: new Date().toISOString(),
-            status: "active",
-            progress: 10
-          };
-          
-          setProject(mockProject);
-        }
-      } catch (err) {
-        console.error("Error fetching project:", err);
-        setError("Er ging iets mis bij het ophalen van je project.");
-        
-        // Fallback to mock project
-        const mockProject: ProjectDetails = {
-          id: id as string,
-          personName: "Mijn verhaal",
-          subjectType: "self",
-          periodType: "fullLife",
-          writingStyle: "isaacson",
-          createdAt: new Date().toISOString(),
-          status: "active",
-          progress: 10
-        };
-        
-        setProject(mockProject);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchProject();
-  }, [user, id, getIdToken]);
+  const projectId = params.id as string;
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('nl-NL', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+  useEffect(() => {
+    if (user && projectId) {
+      fetchProjectData();
+      fetchQuestions();
+    }
+  }, [user, projectId]);
+
+  const fetchProjectData = async () => {
+    try {
+      // First try to get project data from Supabase
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', projectId)
+        .single();
+
+      if (projectError) {
+        console.error('Error fetching project from database:', projectError);
+        // Fallback to localStorage
+        const storedProject = localStorage.getItem(`story-${projectId}`);
+        if (storedProject) {
+          try {
+            const localProjectData = JSON.parse(storedProject);
+            setProject({
+              id: projectId,
+              person_name: localProjectData.personName || "Mijn verhaal",
+              subject_type: localProjectData.subjectType || "self",
+              period_type: localProjectData.periodType || "fullLife",
+              writing_style: localProjectData.writingStyle || "isaacson",
+              created_at: localProjectData.createdAt || new Date().toISOString(),
+              status: localProjectData.status || "active",
+              progress: localProjectData.progress || 15
+            });
+          } catch (e) {
+            console.error("Error parsing stored project:", e);
+            setFallbackProject();
+          }
+        } else {
+          setFallbackProject();
+        }
+      } else {
+        // Successfully got project from database
+        setProject(projectData);
+      }
+    } catch (error) {
+      console.error("Error in fetchProjectData:", error);
+      setFallbackProject();
+    }
+  };
+
+  const setFallbackProject = () => {
+    setProject({
+      id: projectId,
+      person_name: "Mijn verhaal",
+      subject_type: "self",
+      period_type: "fullLife",
+      writing_style: "isaacson",
+      created_at: new Date().toISOString(),
+      status: "active",
+      progress: 15
     });
   };
 
-  return (
-    <ProtectedRoute>
-      <Navigation />
-      <main className="max-w-5xl mx-auto px-6 py-12">
-        {isLoading ? (
+  const fetchQuestions = async () => {
+    try {
+      setIsLoading(true);
+      
+      const token = await getIdToken();
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`/api/questions?storyId=${projectId}&userId=${user?.id}`, {
+        headers
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setQuestions(data.questions || []);
+      } else {
+        console.error("Failed to fetch questions");
+        setError("Er ging iets mis bij het ophalen van de vragen.");
+      }
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+      setError("Er ging iets mis bij het ophalen van de vragen.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const generateNewQuestions = async () => {
+    try {
+      setIsGeneratingQuestions(true);
+      setError(null);
+
+      const token = await getIdToken();
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const response = await fetch("/api/questions", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          storyId: projectId,
+          userId: user?.id,
+          type: "generate"
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setQuestions(data.questions || []);
+        
+        // Show success message
+        alert("Nieuwe vragen zijn gegenereerd en via e-mail verzonden!");
+      } else {
+        setError("Er ging iets mis bij het genereren van nieuwe vragen.");
+      }
+    } catch (error) {
+      console.error("Error generating questions:", error);
+      setError("Er ging iets mis bij het verbinden met de server.");
+    } finally {
+      setIsGeneratingQuestions(false);
+    }
+  };
+
+  const handleAnswerSubmitted = async (questionId: string) => {
+    // Refresh questions to get updated data from database
+    await fetchQuestions();
+    
+    // Refresh project data to get updated progress
+    await fetchProjectData();
+  };
+
+  if (isLoading) {
+    return (
+      <ProtectedRoute>
+        <Navigation />
+        <main className="max-w-4xl mx-auto px-6 py-12">
           <div className="text-center py-10">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
             <p className="mt-2 text-gray-600">Project wordt geladen...</p>
           </div>
-        ) : error ? (
-          <div className="text-center py-10">
-            <p className="text-red-600">{error}</p>
-            <Link
-              href="/dashboard"
-              className="mt-4 text-blue-600 underline"
-            >
-              Terug naar dashboard
-            </Link>
-          </div>
-        ) : project ? (
+        </main>
+        <Footer />
+      </ProtectedRoute>
+    );
+  }
+
+  const pendingQuestions = questions.filter(q => q.status === 'pending');
+  const answeredQuestions = questions.filter(q => q.status === 'answered');
+
+  return (
+    <ProtectedRoute>
+      <Navigation />
+      <main className="max-w-4xl mx-auto px-6 py-12">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <div className="flex justify-between items-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-800">
-                {project.subjectType === "self" ? "Mijn verhaal" : `Verhaal van ${project.personName}`}
-              </h1>
-              <Link
-                href="/dashboard"
-                className="text-blue-600 hover:underline"
-              >
-                ← Terug naar dashboard
-              </Link>
-            </div>
-            
-            <div className="bg-white shadow rounded-lg overflow-hidden mb-8">
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <p className="text-gray-600 text-sm">
-                      Aangemaakt op {formatDate(project.createdAt)}
-                    </p>
-                    <p className="text-gray-600 text-sm">
-                      Status: <span className="font-medium">{project.status === "active" ? "Actief" : project.status}</span>
-                    </p>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    project.status === 'active' ? 'bg-green-100 text-green-800' :
-                    project.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {project.progress || 10}% voltooid
-                  </span>
-                </div>
-                
-                <div className="w-full bg-gray-200 rounded-full h-2.5 mb-6">
-                  <div 
-                    className="bg-blue-600 h-2.5 rounded-full" 
-                    style={{ width: `${project.progress || 10}%` }}
-                  ></div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <h2 className="text-lg font-medium mb-2">Instellingen</h2>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p><span className="font-medium">Type:</span> {
-                          project.subjectType === 'self' ? 'Over mezelf' : 'Over iemand anders'
-                        }</p>
-                        <p><span className="font-medium">Periode:</span> {
-                          project.periodType === 'fullLife' ? 'Volledig leven' :
-                          project.periodType === 'youth' ? 'Jeugd' :
-                          project.periodType === 'specificPeriod' ? 'Specifieke periode' :
-                          'Specifiek thema'
-                        }</p>
-                      </div>
-                      <div>
-                        <p><span className="font-medium">Schrijfstijl:</span> {
-                          project.writingStyle === 'isaacson' ? 'Walter Isaacson' :
-                          project.writingStyle === 'gul' ? 'Lale Gül' :
-                          project.writingStyle === 'tellegen' ? 'Toon Tellegen' :
-                          'Adaptief'
-                        }</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="border-t border-gray-200 px-6 py-4">
-                <h2 className="text-lg font-medium mb-4">Volgende stappen</h2>
-                <div className="space-y-2">
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <p className="text-blue-800">
-                      Je eerste set vragen is naar je gestuurd! Check je WhatsApp of e-mail en beantwoord de vragen om je verhaal te beginnen.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white shadow rounded-lg p-6 mb-8">
-              <h2 className="text-lg font-medium mb-4">Hoofdstukken</h2>
-              
-              <div className="space-y-4">
-                <div className="border border-gray-200 rounded-lg p-4 flex justify-between items-center">
-                  <div>
-                    <h3 className="font-medium">Hoofdstuk 1: De beginjaren</h3>
-                    <p className="text-sm text-gray-600">Wachten op jouw antwoorden</p>
-                  </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                    In behandeling
-                  </span>
-                </div>
-                
-                <div className="border border-gray-200 rounded-lg p-4 flex justify-between items-center opacity-50">
-                  <div>
-                    <h3 className="font-medium">Hoofdstuk 2: Opgroeien</h3>
-                    <p className="text-sm text-gray-600">Nog niet begonnen</p>
-                  </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                    Nog niet begonnen
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-10">
-            <p className="text-gray-600">Project niet gevonden</p>
-            <Link
-              href="/dashboard"
-              className="mt-4 text-blue-600 underline"
+            <Link 
+              href="/dashboard" 
+              className="text-blue-600 hover:underline text-sm mb-2 inline-block"
             >
-              Terug naar dashboard
+              ← Terug naar dashboard
             </Link>
+            <h1 className="text-3xl font-bold text-gray-800">
+              {project?.subject_type === "self" ? "Mijn verhaal" : `Verhaal van ${project?.person_name}`}
+            </h1>
+            <p className="text-gray-600 mt-1">
+              {project && `${project.progress || 15}% voltooid`}
+            </p>
+          </div>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={generateNewQuestions}
+              disabled={isGeneratingQuestions}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {isGeneratingQuestions ? "Genereren..." : "📧 Nieuwe vragen"}
+            </button>
+          </div>
+        </div>
+
+        {/* Progress Visualization */}
+        {project && (
+          <div className="mb-8">
+            <ProgressVisualization project={project} />
           </div>
         )}
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* Questions Section */}
+        <div className="space-y-8">
+          {/* Pending Questions */}
+          {pendingQuestions.length > 0 && (
+            <div>
+              <h2 className="text-2xl font-semibold mb-4 text-gray-800">
+                📋 Te beantwoorden vragen ({pendingQuestions.length})
+              </h2>
+              <div className="space-y-4">
+                {pendingQuestions.map((question) => (
+                  <QuestionCard
+                    key={question.id}
+                    question={question}
+                    onAnswerSubmitted={handleAnswerSubmitted}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Answered Questions */}
+          {answeredQuestions.length > 0 && (
+            <div>
+              <h2 className="text-2xl font-semibold mb-4 text-gray-800">
+                ✅ Beantwoorde vragen ({answeredQuestions.length})
+              </h2>
+              <div className="space-y-4">
+                {answeredQuestions.map((question) => (
+                  <QuestionCard
+                    key={question.id}
+                    question={question}
+                    onAnswerSubmitted={handleAnswerSubmitted}
+                    isAnswered={true}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {questions.length === 0 && (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <h3 className="text-xl font-medium text-gray-700 mb-2">
+                Nog geen vragen beschikbaar
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Genereer je eerste set vragen om te beginnen met je verhaal.
+              </p>
+              <button
+                onClick={generateNewQuestions}
+                disabled={isGeneratingQuestions}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {isGeneratingQuestions ? "Genereren..." : "📧 Genereer eerste vragen"}
+              </button>
+            </div>
+          )}
+        </div>
       </main>
       <Footer />
     </ProtectedRoute>
   );
 }
+
