@@ -23,8 +23,7 @@ export default function HomePage() {
                 <span className="block text-blue-600">Wij schrijven</span>
               </h1>
               <p className="mt-3 text-lg text-gray-600 mb-8">
-                Leg moeiteloos herinneringen vast met spraak of WhatsApp. Geen formulieren, 
-                geen schrijfwerk – deel gewoon verhalen en ontvang een prachtig boek.
+                Herinneringen vervagen, verhalen verdwijnen. Bewaar het levensverhaal van je dierbare – moeiteloos via spraak of WhatsApp. Jij vertelt, wij maken er een boek van.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 {user ? (
