@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Navigation from "../../../components/Navigation";
 import Footer from "../../../components/Footer";
@@ -33,7 +33,12 @@ interface Project {
   created_at: string;
   status: string;
   progress?: number;
-  progress_detail?: any;
+  progress_detail?: Record<string, {
+    answered: number;
+    total: number;
+    percentage: number;
+    categories: string[];
+  }>;
 }
 
 export default function ProjectPage() {
@@ -47,14 +52,20 @@ export default function ProjectPage() {
 
   const projectId = params.id as string;
 
-  useEffect(() => {
-    if (user && projectId) {
-      fetchProjectData();
-      fetchQuestions();
-    }
-  }, [user, projectId]);
+  const setFallbackProject = useCallback(() => {
+    setProject({
+      id: projectId,
+      person_name: "Mijn verhaal",
+      subject_type: "self",
+      period_type: "fullLife",
+      writing_style: "isaacson",
+      created_at: new Date().toISOString(),
+      status: "active",
+      progress: 15
+    });
+  }, [projectId]);
 
-  const fetchProjectData = async () => {
+  const fetchProjectData = useCallback(async () => {
     try {
       // First try to get project data from Supabase
       const { data: projectData, error: projectError } = await supabase
@@ -95,22 +106,9 @@ export default function ProjectPage() {
       console.error("Error in fetchProjectData:", error);
       setFallbackProject();
     }
-  };
+  }, [projectId, setFallbackProject]);
 
-  const setFallbackProject = () => {
-    setProject({
-      id: projectId,
-      person_name: "Mijn verhaal",
-      subject_type: "self",
-      period_type: "fullLife",
-      writing_style: "isaacson",
-      created_at: new Date().toISOString(),
-      status: "active",
-      progress: 15
-    });
-  };
-
-  const fetchQuestions = async () => {
+  const fetchQuestions = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -140,7 +138,17 @@ export default function ProjectPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [projectId, user?.id, getIdToken]);
+
+  useEffect(() => {
+    if (user && projectId) {
+      const loadData = async () => {
+        await fetchProjectData();
+        await fetchQuestions();
+      };
+      loadData();
+    }
+  }, [user, projectId, fetchProjectData, fetchQuestions]);
 
   const generateNewQuestions = async () => {
     try {
@@ -183,13 +191,13 @@ export default function ProjectPage() {
     }
   };
 
-  const handleAnswerSubmitted = async (questionId: string) => {
+  const handleAnswerSubmitted = useCallback(async () => {
     // Refresh questions to get updated data from database
     await fetchQuestions();
     
     // Refresh project data to get updated progress
     await fetchProjectData();
-  };
+  }, [fetchQuestions, fetchProjectData]);
 
   if (isLoading) {
     return (

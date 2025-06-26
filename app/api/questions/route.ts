@@ -240,13 +240,6 @@ function generateQuestionsForStory(storyId: string) {
 
 async function updateStoryProgress(storyId: string) {
   try {
-    // Get project details to understand the scope
-    const { data: project } = await supabase
-      .from('projects')
-      .select('subject_type, period_type, metadata')
-      .eq('id', storyId)
-      .single();
-
     // Get all questions categorized by life periods
     const { data: questions } = await supabase
       .from('questions')
@@ -309,22 +302,36 @@ async function updateStoryProgress(storyId: string) {
   }
 }
 
-async function sendQuestionsViaEmail(userId: string, storyId: string, questions: any[]) {
+async function sendQuestionsViaEmail(userId: string, storyId: string, questions: Array<{
+  id: string;
+  question: string;
+  category: string;
+}>) {
   // In production, implement actual email sending
   console.log(`Sending ${questions.length} questions via email for story ${storyId} to user ${userId}`);
   
-  // Mock email sending - replace with actual email service
-  const emailData = {
-    to: 'user@example.com', // Get from user data
-    subject: 'Nieuwe vragen voor je levensverhaal',
-    html: generateQuestionEmail(questions, storyId)
-  };
+  // Generate the email HTML content
+  const emailHtml = generateQuestionEmail(questions, storyId);
+  
+  console.log('Email would be sent with content length:', emailHtml.length);
   
   // Here you would integrate with your email service (SendGrid, Mailgun, etc.)
+  // Example implementation:
+  // const emailService = new EmailService();
+  // await emailService.send({
+  //   to: getUserEmail(userId),
+  //   subject: 'Nieuwe vragen voor je levensverhaal',
+  //   html: emailHtml
+  // });
+  
   return Promise.resolve(true);
 }
 
-function generateQuestionEmail(questions: any[], storyId: string) {
+function generateQuestionEmail(questions: Array<{
+  id: string;
+  question: string;
+  category: string;
+}>, storyId: string) {
   const questionsList = questions.slice(0, 3).map((q, index) => `
     <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px;">
       <h3 style="color: #2563eb; margin-bottom: 10px;">Vraag ${index + 1}</h3>
@@ -377,3 +384,4 @@ function generateQuestionEmail(questions: any[], storyId: string) {
     </html>
   `;
 }
+

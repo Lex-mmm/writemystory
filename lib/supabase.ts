@@ -28,7 +28,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 export async function checkSupabaseConnection() {
   try {
     // Simple query to check connection - try projects table first
-    const { data, error } = await supabase.from('projects').select('id').limit(1);
+    const { error } = await supabase.from('projects').select('id').limit(1);
     
     if (error && error.code === 'PGRST116') {
       // Table doesn't exist, try to create it

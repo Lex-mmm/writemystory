@@ -1,15 +1,22 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Navigation from "../../components/Navigation";
 import Footer from "../../components/Footer";
 import { useAuth } from "../../context/AuthContext";
 
+interface Question {
+  id: string;
+  storyId: string;
+  question: string;
+  category: string;
+}
+
 function AnswerPageContent() {
   const searchParams = useSearchParams();
   const { user, getIdToken } = useAuth();
-  const [question, setQuestion] = useState<any>(null);
+  const [question, setQuestion] = useState<Question | null>(null);
   const [answer, setAnswer] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,18 +25,12 @@ function AnswerPageContent() {
   const questionId = searchParams.get('questionId');
   const storyId = searchParams.get('storyId');
 
-  useEffect(() => {
-    if (questionId && storyId) {
-      fetchQuestion();
-    }
-  }, [questionId, storyId]);
-
-  const fetchQuestion = async () => {
+  const fetchQuestion = useCallback(async () => {
     try {
       // Mock question data - in production, fetch from API
       setQuestion({
-        id: questionId,
-        storyId: storyId,
+        id: questionId || '',
+        storyId: storyId || '',
         question: "Kun je me vertellen over de plek waar je bent opgegroeid? Hoe zag je buurt eruit?",
         category: "early_life"
       });
@@ -38,7 +39,13 @@ function AnswerPageContent() {
       console.error("Error fetching question:", error);
       setIsLoading(false);
     }
-  };
+  }, [questionId, storyId]);
+
+  useEffect(() => {
+    if (questionId && storyId) {
+      fetchQuestion();
+    }
+  }, [questionId, storyId, fetchQuestion]);
 
   const handleSubmitAnswer = async (e: React.FormEvent) => {
     e.preventDefault();

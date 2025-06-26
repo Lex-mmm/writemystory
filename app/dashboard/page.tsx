@@ -18,7 +18,12 @@ interface Project {
   createdAt: string;
   status: string;
   progress?: number;
-  progress_detail?: any;
+  progress_detail?: Record<string, {
+    answered: number;
+    total: number;
+    percentage: number;
+    categories: string[];
+  }>;
 }
 
 // Create a separate component for the parts that need useSearchParams
@@ -69,7 +74,7 @@ function DashboardContent() {
           try {
             const errorData = JSON.parse(errorText);
             throw new Error(errorData.error || errorData.details || `HTTP ${response.status}`);
-          } catch (parseError) {
+          } catch {
             throw new Error(`HTTP ${response.status}: ${errorText}`);
           }
         }
