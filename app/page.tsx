@@ -23,7 +23,7 @@ export default function HomePage() {
                 <span className="block text-blue-600">Jij vertelt</span>
               </h1>
               <p className="mt-3 text-lg text-gray-600 mb-8">
-                Jouw verhalen zijn kostbaar en verdienen het om bewaard te blijven. Onze AI-assistent begeleidt je met slimme vragen die je helpen je levensverhaal compleet te vertellen. We vinden samen de ontbrekende puzzelstukjes en zorgen dat geen belangrijk moment verloren gaat. Van jouw antwoorden maken wij een prachtig boek dat generaties lang gekoesterd wordt.
+                Herinneringen vervagen, verhalen verdwijnen. Bewaar het levensverhaal van je dierbare – moeiteloos via spraak of WhatsApp. Jij vertelt, wij maken er een boek van.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 {user ? (

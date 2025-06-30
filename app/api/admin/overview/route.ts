@@ -11,6 +11,11 @@ import {
 } from '../../../../lib/adminTypes';
 
 export async function GET(request: NextRequest) {
+  // Skip during build time
+  if (process.env.NODE_ENV === 'production' && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return createAdminErrorResponse('Admin service not available during build', 503);
+  }
+
   // Validate admin authentication
   const { isValid, error } = validateAdminToken(request);
   
@@ -176,6 +181,11 @@ export async function GET(request: NextRequest) {
 
 // Additional helper endpoint for specific user data
 export async function POST(request: NextRequest) {
+  // Skip during build time
+  if (process.env.NODE_ENV === 'production' && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return createAdminErrorResponse('Admin service not available during build', 503);
+  }
+
   // Validate admin authentication
   const { isValid, error } = validateAdminToken(request);
   

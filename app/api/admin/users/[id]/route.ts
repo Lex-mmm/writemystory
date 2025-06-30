@@ -7,6 +7,11 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<Record<string, string | string[]>> }
 ) {
+  // Skip during build time
+  if (process.env.NODE_ENV === 'production' && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return createAdminErrorResponse('Admin service not available during build', 503);
+  }
+
   const params = await context.params;
   const userId = Array.isArray(params.id) ? params.id[0] : params.id;
 
@@ -101,6 +106,11 @@ export async function PUT(
   request: NextRequest,
   context: { params: Promise<Record<string, string | string[]>> }
 ) {
+  // Skip during build time
+  if (process.env.NODE_ENV === 'production' && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return createAdminErrorResponse('Admin service not available during build', 503);
+  }
+
   const params = await context.params;
   const userId = Array.isArray(params.id) ? params.id[0] : params.id;
 
@@ -182,6 +192,11 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<Record<string, string | string[]>> }
 ) {
+  // Skip during build time
+  if (process.env.NODE_ENV === 'production' && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return createAdminErrorResponse('Admin service not available during build', 503);
+  }
+
   const params = await context.params;
   const userId = Array.isArray(params.id) ? params.id[0] : params.id;
 
