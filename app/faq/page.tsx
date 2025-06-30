@@ -218,7 +218,7 @@ export default function FaqPage() {
           <h3 className="text-xl font-semibold mb-2">Nog vragen?</h3>
           <p className="text-gray-600 mb-4">We helpen je graag verder met al je vragen over ons platform.</p>
           <a 
-            href="mailto:info@writemystory.ai" 
+            href="mailto:info@write-my-story.com" 
             className="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             Contact opnemen

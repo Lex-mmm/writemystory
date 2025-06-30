@@ -20,12 +20,12 @@ export default function AboutPage() {
 
           {/* Profile section with image */}
           <div className="bg-white rounded-lg shadow-md p-8 flex flex-col md:flex-row items-center gap-8 mb-10">
-            <div className="w-40 h-40 md:w-56 md:h-56 flex-shrink-0">
+            <div className="w-40 h-40 md:w-56 md:h-56 flex-shrink-0 relative">
               <Image
                 src="/images/lex.png"
                 alt="Lex van Loon"
-                width={160}
-                height={160}
+                fill
+                sizes="(max-width: 768px) 160px, 224px"
                 className="rounded-full object-cover shadow-md border-4 border-white"
               />
             </div>

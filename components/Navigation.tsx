@@ -34,6 +34,16 @@ export default function Navigation() {
               >
                 Hoe het werkt
               </Link>
+              <Link
+                href="/pricing"
+                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                  pathname === "/pricing"
+                    ? "border-blue-500 text-gray-900"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                Prijzen
+              </Link>
               {user && (
                 <>
                   <Link
@@ -83,6 +93,16 @@ export default function Navigation() {
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
             {user ? (
               <div className="flex items-center space-x-4">
+                <Link
+                  href="/account"
+                  className={`text-sm font-medium ${
+                    pathname === "/account"
+                      ? "text-blue-600"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Account
+                </Link>
                 <span className="text-sm text-gray-600">
                   {user.email?.split('@')[0]}
                 </span>
@@ -161,6 +181,17 @@ export default function Navigation() {
             onClick={() => setIsMenuOpen(false)}
           >
             Hoe het werkt
+          </Link>
+          <Link
+            href="/pricing"
+            className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+              pathname === "/pricing"
+                ? "border-blue-500 text-blue-700 bg-blue-50"
+                : "border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
+            }`}
+            onClick={() => setIsMenuOpen(false)}
+          >
+            Prijzen
           </Link>
           {user && (
             <>

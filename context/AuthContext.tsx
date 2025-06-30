@@ -101,15 +101,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return data.session.access_token;
       }
 
-      // For testing/demo purposes, return a mock token if user exists but no token
-      if (user) {
-        return "mock-token-for-testing";
+      // For testing/demo purposes, return the user ID if no token available
+      if (user?.id) {
+        console.log('Using user ID as fallback token:', user.id);
+        return user.id;
       }
 
       return null;
     } catch (error) {
       console.error("Error getting ID token:", error);
-      return null;
+      return user?.id || null; // Fallback to user ID
     }
   };
 

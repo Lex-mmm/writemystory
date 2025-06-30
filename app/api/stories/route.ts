@@ -273,3 +273,55 @@ export async function POST(request: NextRequest) {
     }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  // Check if Supabase is properly configured
+  if (!isSupabaseConfigured()) {
+    console.error('Supabase not configured properly');
+    return NextResponse.json({ error: 'Database service unavailable' }, { status: 503 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const projectId = searchParams.get('id');
+  const userId = searchParams.get('userId');
+
+  if (!projectId || !userId) {
+    return NextResponse.json({ error: 'Project ID and User ID are required' }, { status: 400 });
+  }
+
+  try {
+    console.log('Deleting project:', projectId, 'for user:', userId);
+
+    // Set user context for RLS
+    await setUserContext(userId);
+
+    // Delete the project (CASCADE should handle related records)
+    const { error: deleteError } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', projectId)
+      .eq('user_id', userId);
+
+    if (deleteError) {
+      console.error('Error deleting project:', deleteError);
+      return NextResponse.json({ 
+        error: 'Failed to delete project', 
+        details: deleteError.message 
+      }, { status: 500 });
+    }
+
+    console.log('Project deleted successfully:', projectId);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Project deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error in DELETE /api/stories:', error);
+    return NextResponse.json({ 
+      error: 'Failed to delete project', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
+  }
+}

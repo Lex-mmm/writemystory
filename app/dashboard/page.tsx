@@ -36,6 +36,7 @@ function DashboardContent() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -181,6 +182,60 @@ function DashboardContent() {
     }
   };
 
+  const deleteProject = async (projectIdToDelete: string, projectName: string) => {
+    // Show confirmation dialog
+    const confirmDelete = window.confirm(
+      `Weet je zeker dat je "${projectName}" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.`
+    );
+    
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingProjectId(projectIdToDelete);
+      
+      const token = await getIdToken();
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      // Include userId in the request URL and body for better reliability
+      const deleteUrl = `/api/stories/${projectIdToDelete}?userId=${encodeURIComponent(user?.id || '')}`;
+      
+      const response = await fetch(deleteUrl, {
+        method: 'DELETE',
+        headers,
+        body: JSON.stringify({
+          userId: user?.id,
+          projectId: projectIdToDelete
+        })
+      });
+
+      if (response.ok) {
+        // Remove from state
+        setProjects(projects.filter(project => project.id !== projectIdToDelete));
+        
+        // Remove from localStorage if it exists
+        localStorage.removeItem(`story-${projectIdToDelete}`);
+        
+        // Show success message
+        console.log('Project deleted successfully');
+      } else {
+        const errorData = await response.json();
+        console.error('Delete failed:', errorData);
+        throw new Error(errorData.error || 'Failed to delete project');
+      }
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      alert('Er ging iets mis bij het verwijderen van het project. Probeer het opnieuw.');
+    } finally {
+      setDeletingProjectId(null);
+    }
+  };
+
   return (
     <main className="max-w-5xl mx-auto px-6 py-12">
       {projectCreated && (
@@ -261,13 +316,34 @@ function DashboardContent() {
                         Aangemaakt op {formatDate(project.createdAt)}
                       </p>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      project.status === 'active' ? 'bg-green-100 text-green-800' :
-                      project.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {getProjectStatusText(project.status)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        project.status === 'active' ? 'bg-green-100 text-green-800' :
+                        project.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {getProjectStatusText(project.status)}
+                      </span>
+                      
+                      {/* Delete button */}
+                      <button
+                        onClick={() => deleteProject(
+                          project.id, 
+                          project.subjectType === "self" ? "Mijn verhaal" : `Verhaal van ${project.personName}`
+                        )}
+                        disabled={deletingProjectId === project.id}
+                        className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
+                        title="Project verwijderen"
+                      >
+                        {deletingProjectId === project.id ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-red-600 border-r-transparent"></div>
+                        ) : (
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
                   
                   {/* Progress Visualization */}

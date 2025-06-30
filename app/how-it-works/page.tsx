@@ -2,6 +2,7 @@
 
 import Navigation from '../../components/Navigation';
 import Footer from '../../components/Footer';
+import ContributionGuide from '../../components/ContributionGuide';
 import Link from 'next/link';
 
 export default function HowItWorksPage() {
@@ -21,6 +22,9 @@ export default function HowItWorksPage() {
               Geen leeg Word-document, geen stress: jij vertelt, wij schrijven.
             </p>
           </div>
+
+          {/* Contribution Guide */}
+          <ContributionGuide />
 
           {/* Step 1 */}
           <div className="bg-white rounded-lg shadow-md p-8 mb-8">

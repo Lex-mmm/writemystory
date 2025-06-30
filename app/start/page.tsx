@@ -19,6 +19,8 @@ export default function StartPage() {
   const [personName, setPersonName] = useState<string>("");
   const [birthYear, setBirthYear] = useState<string>("");
   const [relationship, setRelationship] = useState<string>("");
+  const [isDeceased, setIsDeceased] = useState<boolean>(false);
+  const [passedAwayYear, setPassedAwayYear] = useState<string>("");
   
   // Step 2: Collaborators
   const [collaborators, setCollaborators] = useState<{
@@ -41,7 +43,7 @@ export default function StartPage() {
   const [theme, setTheme] = useState<string>("");
   
   // Step 4: Writing style
-  const [writingStyle, setWritingStyle] = useState<string>("isaacson");
+  const [writingStyle, setWritingStyle] = useState<string>("neutral");
   
   // Step 5: Communication preferences
   const [communicationMethods, setCommunicationMethods] = useState<{
@@ -56,7 +58,7 @@ export default function StartPage() {
     voice: false,
   });
   
-  // Step 6: Delivery preferences (simplified - removed layout style)
+  // Step 6: Delivery preferences
   const [deliveryFormat, setDeliveryFormat] = useState<string>("both");
 
   const goToNextStep = () => {
@@ -101,6 +103,8 @@ export default function StartPage() {
         personName: subjectType === "other" ? personName : user.user_metadata?.name || "",
         birthYear,
         relationship: subjectType === "other" ? relationship : "",
+        isDeceased: subjectType === "other" ? isDeceased : false,
+        passedAwayYear: subjectType === "other" && isDeceased ? passedAwayYear : "",
         collaborators,
         collaboratorEmails: collaboratorEmails.split(/[\n,]+/).map(email => email.trim()).filter(email => email),
         periodType,
@@ -152,27 +156,43 @@ export default function StartPage() {
   };
 
   const renderStepIndicator = () => {
+    const steps = [
+      { number: 1, title: "Onderwerp", icon: "👤" },
+      { number: 2, title: "Helpers", icon: "👥" },
+      { number: 3, title: "Periode", icon: "📅" },
+      { number: 4, title: "Stijl", icon: "✍️" },
+      { number: 5, title: "Contact", icon: "📱" },
+      { number: 6, title: "Levering", icon: "📦" },
+      { number: 7, title: "Overzicht", icon: "✅" }
+    ];
+
     return (
       <div className="mb-8">
         <div className="flex items-center justify-between">
-          {[1, 2, 3, 4, 5, 6, 7].map((step) => (
-            <div 
-              key={step} 
-              className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
-                currentStep === step 
-                  ? "bg-blue-600 text-white" 
-                  : currentStep > step 
-                    ? "bg-green-100 text-green-800 border border-green-500" 
-                    : "bg-gray-100 text-gray-500 border border-gray-300"
-              }`}
-            >
-              {currentStep > step ? "✓" : step}
+          {steps.map((step) => (
+            <div key={step.number} className="flex flex-col items-center">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-medium mb-2 ${
+                currentStep === step.number 
+                  ? "bg-blue-600 text-white shadow-lg" 
+                  : currentStep > step.number 
+                    ? "bg-green-500 text-white" 
+                    : "bg-gray-200 text-gray-500"
+              }`}>
+                {currentStep > step.number ? "✓" : step.icon}
+              </div>
+              <span className={`text-xs text-center ${
+                currentStep === step.number ? "text-blue-600 font-medium" : "text-gray-500"
+              }`}>
+                {step.title}
+              </span>
             </div>
           ))}
         </div>
-        <div className="flex mt-2 justify-between">
-          <div className="text-xs text-gray-500">Start</div>
-          <div className="text-xs text-gray-500">Afronding</div>
+        <div className="w-full bg-gray-200 rounded-full h-2 mt-4">
+          <div 
+            className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+            style={{ width: `${(currentStep / 7) * 100}%` }}
+          ></div>
         </div>
       </div>
     );
@@ -180,90 +200,190 @@ export default function StartPage() {
 
   const renderStep1 = () => {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">1. Voor wie is dit verhaal?</h2>
+      <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold mb-2">👤 Voor wie schrijven we dit verhaal?</h2>
+          <p className="text-gray-600">Kies het onderwerp van je levensverhaal</p>
+        </div>
         
-        <div className="space-y-4 mb-6">
-          <div className="flex items-center space-x-2">
-            <input
-              type="radio"
-              id="self"
-              name="subjectType"
-              value="self"
-              checked={subjectType === "self"}
-              onChange={() => setSubjectType("self")}
-              className="h-4 w-4 text-blue-600"
-            />
-            <label htmlFor="self" className="text-gray-700">Over mezelf</label>
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+          <div 
+            className={`p-6 rounded-lg border-2 cursor-pointer transition-all ${
+              subjectType === "self" 
+                ? "border-blue-500 bg-blue-50" 
+                : "border-gray-200 hover:border-gray-300"
+            }`}
+            onClick={() => setSubjectType("self")}
+          >
+            <div className="flex items-center mb-3">
+              <input
+                type="radio"
+                id="self"
+                name="subjectType"
+                value="self"
+                checked={subjectType === "self"}
+                onChange={() => setSubjectType("self")}
+                className="h-4 w-4 text-blue-600 mr-3"
+              />
+              <span className="text-2xl mr-3">👤</span>
+              <label htmlFor="self" className="text-lg font-medium text-gray-800">Over mezelf</label>
+            </div>
+            <p className="text-sm text-gray-600 ml-10">
+              Vertel je eigen levensverhaal. Je kunt altijd familieleden en vrienden uitnodigen om mee te helpen.
+            </p>
           </div>
           
-          <div className="flex items-center space-x-2">
-            <input
-              type="radio"
-              id="other"
-              name="subjectType"
-              value="other"
-              checked={subjectType === "other"}
-              onChange={() => setSubjectType("other")}
-              className="h-4 w-4 text-blue-600"
-            />
-            <label htmlFor="other" className="text-gray-700">Over iemand anders</label>
+          <div 
+            className={`p-6 rounded-lg border-2 cursor-pointer transition-all ${
+              subjectType === "other" 
+                ? "border-blue-500 bg-blue-50" 
+                : "border-gray-200 hover:border-gray-300"
+            }`}
+            onClick={() => setSubjectType("other")}
+          >
+            <div className="flex items-center mb-3">
+              <input
+                type="radio"
+                id="other"
+                name="subjectType"
+                value="other"
+                checked={subjectType === "other"}
+                onChange={() => setSubjectType("other")}
+                className="h-4 w-4 text-blue-600 mr-3"
+              />
+              <span className="text-2xl mr-3">👨‍👩‍👧‍👦</span>
+              <label htmlFor="other" className="text-lg font-medium text-gray-800">Over iemand anders</label>
+            </div>
+            <p className="text-sm text-gray-600 ml-10">
+              Schrijf het verhaal van een ouder, partner, kind, vriend of ander dierbaar persoon. Ook geschikt voor memorial verhalen.
+            </p>
           </div>
         </div>
         
         {subjectType === "other" && (
-          <div className="space-y-4 pl-6 border-l-2 border-blue-100">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="personName">
-                🧑 Naam van die persoon
-              </label>
-              <input
-                type="text"
-                id="personName"
-                value={personName}
-                onChange={(e) => setPersonName(e.target.value)}
-                className="w-full border p-2 rounded"
-                placeholder="Bijv. Jan Jansen"
-              />
+          <div className="bg-blue-50 rounded-lg p-6 space-y-4">
+            <h3 className="text-lg font-medium text-gray-800 mb-4">Vertel ons over deze persoon</h3>
+            
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="personName">
+                  📝 Volledige naam
+                </label>
+                <input
+                  type="text"
+                  id="personName"
+                  value={personName}
+                  onChange={(e) => setPersonName(e.target.value)}
+                  className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Bijv. Maria van den Berg"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="birthYear">
+                  📅 Geboortejaar (optioneel)
+                </label>
+                <input
+                  type="text"
+                  id="birthYear"
+                  value={birthYear}
+                  onChange={(e) => setBirthYear(e.target.value)}
+                  className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Bijv. 1950"
+                />
+              </div>
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="birthYear">
-                📆 Geboortejaar (optioneel)
+              <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="relationship">
+                💝 Relatie tot jou
               </label>
-              <input
-                type="text"
-                id="birthYear"
-                value={birthYear}
-                onChange={(e) => setBirthYear(e.target.value)}
-                className="w-full border p-2 rounded"
-                placeholder="Bijv. 1950"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="relationship">
-                💬 Relatie tot jou
-              </label>
-              <input
-                type="text"
+              <select
                 id="relationship"
                 value={relationship}
                 onChange={(e) => setRelationship(e.target.value)}
-                className="w-full border p-2 rounded"
-                placeholder="Bijv. moeder, opa, vriend"
-              />
+                className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Kies een relatie...</option>
+                <option value="moeder">Moeder</option>
+                <option value="vader">Vader</option>
+                <option value="partner">Partner</option>
+                <option value="kind">Kind</option>
+                <option value="opa">Opa</option>
+                <option value="oma">Oma</option>
+                <option value="broer">Broer</option>
+                <option value="zus">Zus</option>
+                <option value="vriend">Vriend</option>
+                <option value="vriendin">Vriendin</option>
+                <option value="collega">Collega</option>
+                <option value="anders">Anders</option>
+              </select>
+              {relationship === "anders" && (
+                <input
+                  type="text"
+                  placeholder="Beschrijf de relatie..."
+                  className="w-full border border-gray-300 p-3 rounded-lg mt-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={(e) => setRelationship(e.target.value)}
+                />
+              )}
+            </div>
+
+            {/* Memorial/Deceased Option */}
+            <div className="border-t pt-4 mt-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <input
+                  type="checkbox"
+                  id="isDeceased"
+                  checked={isDeceased}
+                  onChange={(e) => setIsDeceased(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 rounded"
+                />
+                <label htmlFor="isDeceased" className="text-sm font-medium text-gray-700">
+                  🕊️ Deze persoon is helaas overleden
+                </label>
+              </div>
+              
+              {isDeceased && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start space-x-2">
+                    <span className="text-yellow-600 mt-0.5">💛</span>
+                    <div>
+                      <p className="text-sm text-yellow-800 font-medium">
+                        Een memorial verhaal
+                      </p>
+                      <p className="text-xs text-yellow-700 mt-1">
+                        We helpen je een prachtig eerbetoon te schrijven aan het leven en de herinneringen van deze bijzondere persoon.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-yellow-800 mb-2" htmlFor="passedAwayYear">
+                      🌸 Jaar van overlijden (optioneel)
+                    </label>
+                    <input
+                      type="text"
+                      id="passedAwayYear"
+                      value={passedAwayYear}
+                      onChange={(e) => setPassedAwayYear(e.target.value)}
+                      className="w-full border border-yellow-300 p-3 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-yellow-50"
+                      placeholder="Bijv. 2023"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
         
-        <div className="mt-6 flex justify-end">
+        <div className="mt-8 flex justify-end">
           <button
             type="button"
             onClick={goToNextStep}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+            disabled={subjectType === "other" && (!personName || !relationship)}
+            className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Volgende stap
+            Volgende stap →
           </button>
         </div>
       </div>
@@ -272,86 +392,101 @@ export default function StartPage() {
 
   const renderStep2 = () => {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">2. Wie mogen helpen het verhaal te vertellen?</h2>
+      <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold mb-2">👥 Wie kunnen helpen met verhalen?</h2>
+          <p className="text-gray-600">Selecteer mensen die extra verhalen en herinneringen kunnen bijdragen</p>
+        </div>
         
-        <div className="space-y-3 mb-6">
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="partner"
-              checked={collaborators.partner}
-              onChange={() => setCollaborators({...collaborators, partner: !collaborators.partner})}
-              className="h-4 w-4 text-blue-600 rounded"
-            />
-            <label htmlFor="partner" className="text-gray-700">Partner</label>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="children"
-              checked={collaborators.children}
-              onChange={() => setCollaborators({...collaborators, children: !collaborators.children})}
-              className="h-4 w-4 text-blue-600 rounded"
-            />
-            <label htmlFor="children" className="text-gray-700">Kinderen</label>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="family"
-              checked={collaborators.family}
-              onChange={() => setCollaborators({...collaborators, family: !collaborators.family})}
-              className="h-4 w-4 text-blue-600 rounded"
-            />
-            <label htmlFor="family" className="text-gray-700">Familieleden</label>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="friends"
-              checked={collaborators.friends}
-              onChange={() => setCollaborators({...collaborators, friends: !collaborators.friends})}
-              className="h-4 w-4 text-blue-600 rounded"
-            />
-            <label htmlFor="friends" className="text-gray-700">Vrienden / collega&apos;s</label>
+        <div className="grid md:grid-cols-2 gap-4 mb-6">
+          {[
+            { key: 'partner', label: 'Partner / echtgenoot', icon: '💑', description: 'Kan intieme momenten en gedeelde ervaringen toevoegen' },
+            { key: 'children', label: 'Kinderen', icon: '👶', description: 'Brengen vaak verrassende perspectieven en herinneringen' },
+            { key: 'family', label: 'Familie (broers, zussen, ouders)', icon: '👨‍👩‍👧‍👦', description: 'Delen jeugdherinneringen en familieverhalen' },
+            { key: 'friends', label: 'Vrienden / collega\'s', icon: '👥', description: 'Kunnen andere kanten van je persoonlijkheid belichten' }
+          ].map((item) => (
+            <div 
+              key={item.key}
+              className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                collaborators[item.key as keyof typeof collaborators]
+                  ? "border-blue-500 bg-blue-50" 
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+              onClick={() => setCollaborators({
+                ...collaborators, 
+                [item.key]: !collaborators[item.key as keyof typeof collaborators]
+              })}
+            >
+              <div className="flex items-center mb-2">
+                <input
+                  type="checkbox"
+                  id={item.key}
+                  checked={collaborators[item.key as keyof typeof collaborators]}
+                  onChange={() => setCollaborators({
+                    ...collaborators, 
+                    [item.key]: !collaborators[item.key as keyof typeof collaborators]
+                  })}
+                  className="h-4 w-4 text-blue-600 rounded mr-3"
+                />
+                <span className="text-xl mr-2">{item.icon}</span>
+                <label htmlFor={item.key} className="font-medium text-gray-800">{item.label}</label>
+              </div>
+              <p className="text-sm text-gray-600 ml-9">{item.description}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Skip helpers option */}
+        <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
+          <div className="flex items-center space-x-3">
+            <span className="text-xl">✋</span>
+            <div>
+              <h3 className="font-medium text-gray-800">Liever alleen beginnen?</h3>
+              <p className="text-sm text-gray-600">Je kunt altijd later mensen uitnodigen om mee te helpen.</p>
+            </div>
           </div>
         </div>
         
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="collaboratorEmails">
-            📧 Voeg e-mailadressen of telefoonnummers toe
+        <div className="bg-gray-50 rounded-lg p-6">
+          <label className="block text-sm font-medium text-gray-700 mb-3" htmlFor="collaboratorEmails">
+            📧 Contactgegevens van helpers (optioneel)
           </label>
           <textarea
             id="collaboratorEmails"
             value={collaboratorEmails}
             onChange={(e) => setCollaboratorEmails(e.target.value)}
-            className="w-full border p-2 rounded h-24"
-            placeholder="Bijv. jan@voorbeeld.nl, +31612345678 (één per regel)"
+            className="w-full border border-gray-300 p-3 rounded-lg h-24 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Bijv:&#10;maria@voorbeeld.nl&#10;jan.jansen@email.com&#10;+31612345678&#10;&#10;Eén contactpersoon per regel"
           />
-          <p className="mt-1 text-sm text-gray-500">
-            Deze personen kunnen vragen beantwoorden over het verhaal
+          <p className="mt-2 text-sm text-gray-500">
+            💡 <strong>Tip:</strong> We sturen deze personen een uitnodiging om mee te helpen met het verhaal. Ze kunnen dan ook vragen beantwoorden en eigen herinneringen toevoegen.
           </p>
         </div>
         
-        <div className="mt-6 flex justify-between">
+        <div className="mt-8 flex justify-between">
           <button
             type="button"
             onClick={goToPreviousStep}
-            className="text-blue-600 px-4 py-2 rounded border border-blue-600 hover:bg-blue-50 transition-colors"
+            className="text-blue-600 px-6 py-3 rounded-lg border border-blue-600 hover:bg-blue-50 transition-colors"
           >
-            Vorige stap
+            ← Vorige stap
           </button>
-          <button
-            type="button"
-            onClick={goToNextStep}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-          >
-            Volgende stap
-          </button>
+          <div className="flex space-x-3">
+            <button
+              type="button"
+              onClick={goToNextStep}
+              className="text-gray-600 px-6 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+            >
+              Alleen verder →
+            </button>
+            <button
+              type="button"
+              onClick={goToNextStep}
+              className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Met helpers →
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -359,126 +494,168 @@ export default function StartPage() {
 
   const renderStep3 = () => {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">3. Welke periode of thema&apos;s wil je vastleggen?</h2>
+      <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold mb-2">📅 Welke periode of thema&apos;s?</h2>
+          <p className="text-gray-600">Bepaal de scope van het verhaal</p>
+        </div>
         
         <div className="space-y-4 mb-6">
-          <div className="flex items-center space-x-2">
-            <input
-              type="radio"
-              id="fullLife"
-              name="periodType"
-              value="fullLife"
-              checked={periodType === "fullLife"}
-              onChange={() => setPeriodType("fullLife")}
-              className="h-4 w-4 text-blue-600"
-            />
-            <label htmlFor="fullLife" className="text-gray-700">Het hele leven</label>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <input
-              type="radio"
-              id="youth"
-              name="periodType"
-              value="youth"
-              checked={periodType === "youth"}
-              onChange={() => setPeriodType("youth")}
-              className="h-4 w-4 text-blue-600"
-            />
-            <label htmlFor="youth" className="text-gray-700">Alleen de jeugd</label>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <input
-              type="radio"
-              id="specificPeriod"
-              name="periodType"
-              value="specificPeriod"
-              checked={periodType === "specificPeriod"}
-              onChange={() => setPeriodType("specificPeriod")}
-              className="h-4 w-4 text-blue-600"
-            />
-            <label htmlFor="specificPeriod" className="text-gray-700">Alleen een bijzondere periode</label>
-          </div>
-          
-          {periodType === "specificPeriod" && (
-            <div className="pl-6 space-y-2 border-l-2 border-blue-100">
-              <div className="flex space-x-4">
+          {[
+            { 
+              value: 'fullLife', 
+              icon: '🌟', 
+              title: 'Het complete levensverhaal', 
+              description: 'Van geboorte tot nu - het volledige verhaal met alle belangrijke momenten',
+              timeframe: 'Volledig leven'
+            },
+            { 
+              value: 'youth', 
+              icon: '🎈', 
+              title: 'Jeugd en opgroeijaren', 
+              description: 'Focus op kindertijd, schooljaren en de formative jaren',
+              timeframe: 'Tot ~18 jaar'
+            },
+            { 
+              value: 'specificPeriod', 
+              icon: '📖', 
+              title: 'Een bijzondere periode', 
+              description: 'Een specifieke levensfase die je wilt vastleggen',
+              timeframe: 'Zelf bepalen'
+            },
+            { 
+              value: 'specificTheme', 
+              icon: '🎯', 
+              title: 'Een specifiek thema', 
+              description: 'Focus op een bepaald onderwerp door je hele leven heen',
+              timeframe: 'Thematisch'
+            }
+          ].map((option) => (
+            <div 
+              key={option.value}
+              className={`p-6 rounded-lg border-2 cursor-pointer transition-all ${
+                periodType === option.value 
+                  ? "border-blue-500 bg-blue-50" 
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+              onClick={() => setPeriodType(option.value)}
+            >
+              <div className="flex items-center mb-3">
+                <input
+                  type="radio"
+                  id={option.value}
+                  name="periodType"
+                  value={option.value}
+                  checked={periodType === option.value}
+                  onChange={() => setPeriodType(option.value)}
+                  className="h-4 w-4 text-blue-600 mr-3"
+                />
+                <span className="text-2xl mr-3">{option.icon}</span>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="startYear">
-                    Startjaar
-                  </label>
-                  <input
-                    type="text"
-                    id="startYear"
-                    value={startYear}
-                    onChange={(e) => setStartYear(e.target.value)}
-                    className="w-full border p-2 rounded"
-                    placeholder="Bijv. 1980"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="endYear">
-                    Eindjaar
-                  </label>
-                  <input
-                    type="text"
-                    id="endYear"
-                    value={endYear}
-                    onChange={(e) => setEndYear(e.target.value)}
-                    className="w-full border p-2 rounded"
-                    placeholder="Bijv. 1985"
-                  />
+                  <label htmlFor={option.value} className="text-lg font-medium text-gray-800">{option.title}</label>
+                  <div className="text-xs text-blue-600 font-medium">{option.timeframe}</div>
                 </div>
               </div>
+              <p className="text-sm text-gray-600 ml-10">{option.description}</p>
             </div>
-          )}
-          
-          <div className="flex items-center space-x-2">
-            <input
-              type="radio"
-              id="specificTheme"
-              name="periodType"
-              value="specificTheme"
-              checked={periodType === "specificTheme"}
-              onChange={() => setPeriodType("specificTheme")}
-              className="h-4 w-4 text-blue-600"
-            />
-            <label htmlFor="specificTheme" className="text-gray-700">Specifiek thema</label>
+          ))}
+        </div>
+        
+        {periodType === "specificPeriod" && (
+          <div className="bg-blue-50 rounded-lg p-6 mb-6">
+            <h3 className="text-lg font-medium text-gray-800 mb-4">📅 Welke periode?</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="startYear">
+                  Startjaar
+                </label>
+                <input
+                  type="number"
+                  id="startYear"
+                  value={startYear}
+                  onChange={(e) => setStartYear(e.target.value)}
+                  className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Bijv. 1980"
+                  min="1900"
+                  max={new Date().getFullYear()}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="endYear">
+                  Eindjaar
+                </label>
+                <input
+                  type="number"
+                  id="endYear"
+                  value={endYear}
+                  onChange={(e) => setEndYear(e.target.value)}
+                  className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Bijv. 1990"
+                  min="1900"
+                  max={new Date().getFullYear()}
+                />
+              </div>
+            </div>
           </div>
-          
-          {periodType === "specificTheme" && (
-            <div className="pl-6 border-l-2 border-blue-100">
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="theme">
-                Thema
+        )}
+        
+        {periodType === "specificTheme" && (
+          <div className="bg-blue-50 rounded-lg p-6 mb-6">
+            <h3 className="text-lg font-medium text-gray-800 mb-4">🎯 Wat is het thema?</h3>
+            <div className="grid md:grid-cols-2 gap-3 mb-4">
+              {[
+                "Carrière en werk", "Liefde en relaties", "Ouderschap", "Reizen en avonturen",
+                "Ziekte en herstel", "Migratie", "Creativiteit en kunst", "Sport en prestaties",
+                "Spiritualiteit", "Vriendschappen", "Onderwijs", "Hobby's en passies"
+              ].map((themeOption) => (
+                <button
+                  key={themeOption}
+                  type="button"
+                  onClick={() => setTheme(themeOption)}
+                  className={`p-2 text-sm rounded-lg border transition-all ${
+                    theme === themeOption
+                      ? "border-blue-500 bg-blue-100 text-blue-800"
+                      : "border-gray-300 hover:border-gray-400"
+                  }`}
+                >
+                  {themeOption}
+                </button>
+              ))}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="customTheme">
+                Of beschrijf je eigen thema:
               </label>
               <input
                 type="text"
-                id="theme"
+                id="customTheme"
                 value={theme}
                 onChange={(e) => setTheme(e.target.value)}
-                className="w-full border p-2 rounded"
-                placeholder="Bijv. migratie, carrière, liefde, ziekte & herstel"
+                className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Bijv. Mijn tijd als vrijwilliger in Afrika"
               />
             </div>
-          )}
-        </div>
+          </div>
+        )}
         
-        <div className="mt-6 flex justify-between">
+        <div className="mt-8 flex justify-between">
           <button
             type="button"
             onClick={goToPreviousStep}
-            className="text-blue-600 px-4 py-2 rounded border border-blue-600 hover:bg-blue-50 transition-colors"
+            className="text-blue-600 px-6 py-3 rounded-lg border border-blue-600 hover:bg-blue-50 transition-colors"
           >
-            Vorige stap
+            ← Vorige stap
           </button>
           <button
             type="button"
             onClick={goToNextStep}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+            disabled={
+              (periodType === "specificPeriod" && (!startYear || !endYear)) ||
+              (periodType === "specificTheme" && !theme)
+            }
+            className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Volgende stap
+            Volgende stap →
           </button>
         </div>
       </div>
@@ -486,90 +663,124 @@ export default function StartPage() {
   };
 
   const renderStep4 = () => {
+    const styles = [
+      {
+        value: 'neutral',
+        name: 'Neutrale stijl',
+        icon: '📝',
+        description: 'Helder, toegankelijk, zonder opsmuk',
+        example: 'Eenvoudige, directe taal die de focus legt op de feiten en gebeurtenissen zelf.',
+        suitable: 'Perfect voor mensen die van duidelijkheid en eenvoud houden'
+      },
+      {
+        value: 'isaacson',
+        name: 'Walter Isaacson',
+        icon: '📚',
+        description: 'Feitelijk, gelaagd, biografisch',
+        example: 'Zoals in zijn biografieën van Einstein en Steve Jobs: analytisch en diepgaand.',
+        suitable: 'Perfect voor mensen die houden van detail en context'
+      },
+      {
+        value: 'gul',
+        name: 'Lale Gül',
+        icon: '❤️',
+        description: 'Persoonlijk, direct, emotioneel',
+        example: 'Warm en toegankelijk, met focus op emoties en persoonlijke groei.',
+        suitable: 'Ideaal voor intieme, persoonlijke verhalen'
+      },
+      {
+        value: 'tellegen',
+        name: 'Toon Tellegen',
+        icon: '🎨',
+        description: 'Poëtisch, filosofisch',
+        example: 'Dromerig en beeldend, met aandacht voor de schoonheid van kleine momenten.',
+        suitable: 'Voor mensen die houden van literaire, artistieke taal'
+      },
+      {
+        value: 'adaptive',
+        name: 'Adaptieve stijl',
+        icon: '🎯',
+        description: 'Past zich aan jouw manier van vertellen aan',
+        example: 'Onze AI leert van je antwoorden en ontwikkelt een unieke stijl die bij jou past.',
+        suitable: 'Als je je eigen unieke stem wilt behouden'
+      }
+    ];
+
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">4. Welke schrijfstijl past het best?</h2>
+      <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold mb-2">✍️ Welke schrijfstijl past bij je?</h2>
+          <p className="text-gray-600">Kies de toon en stijl voor je verhaal</p>
+        </div>
         
         <div className="space-y-6 mb-6">
-          <div className="flex items-start space-x-2">
-            <input
-              type="radio"
-              id="isaacson"
-              name="writingStyle"
-              value="isaacson"
-              checked={writingStyle === "isaacson"}
-              onChange={() => setWritingStyle("isaacson")}
-              className="h-4 w-4 text-blue-600 mt-1"
-            />
-            <div>
-              <label htmlFor="isaacson" className="text-gray-700 font-medium block">Walter Isaacson</label>
-              <p className="text-sm text-gray-500">Feitelijk, gelaagd, biografisch</p>
+          {styles.map((style) => (
+            <div 
+              key={style.value}
+              className={`p-6 rounded-lg border-2 cursor-pointer transition-all ${
+                writingStyle === style.value 
+                  ? "border-blue-500 bg-blue-50" 
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+              onClick={() => setWritingStyle(style.value)}
+            >
+              <div className="flex items-start space-x-4">
+                <input
+                  type="radio"
+                  id={style.value}
+                  name="writingStyle"
+                  value={style.value}
+                  checked={writingStyle === style.value}
+                  onChange={() => setWritingStyle(style.value)}
+                  className="h-4 w-4 text-blue-600 mt-1"
+                />
+                <span className="text-2xl">{style.icon}</span>
+                <div className="flex-1">
+                  <div className="flex items-center mb-2">
+                    <label htmlFor={style.value} className="text-lg font-medium text-gray-800">
+                      {style.name}
+                    </label>
+                    <span className="ml-2 text-sm text-blue-600 font-medium">
+                      {style.description}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">
+                    {style.example}
+                  </p>
+                  <p className="text-xs text-gray-500 italic">
+                    {style.suitable}
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-          
-          <div className="flex items-start space-x-2">
-            <input
-              type="radio"
-              id="gul"
-              name="writingStyle"
-              value="gul"
-              checked={writingStyle === "gul"}
-              onChange={() => setWritingStyle("gul")}
-              className="h-4 w-4 text-blue-600 mt-1"
-            />
+          ))}
+        </div>
+        
+        <div className="bg-yellow-50 rounded-lg p-4 border-l-4 border-yellow-400">
+          <div className="flex items-start">
+            <span className="text-yellow-600 mr-2">💡</span>
             <div>
-              <label htmlFor="gul" className="text-gray-700 font-medium block">Lale Gül</label>
-              <p className="text-sm text-gray-500">Persoonlijk, direct, emotioneel</p>
-            </div>
-          </div>
-          
-          <div className="flex items-start space-x-2">
-            <input
-              type="radio"
-              id="tellegen"
-              name="writingStyle"
-              value="tellegen"
-              checked={writingStyle === "tellegen"}
-              onChange={() => setWritingStyle("tellegen")}
-              className="h-4 w-4 text-blue-600 mt-1"
-            />
-            <div>
-              <label htmlFor="tellegen" className="text-gray-700 font-medium block">Toon Tellegen</label>
-              <p className="text-sm text-gray-500">Poëtisch, filosofisch</p>
-            </div>
-          </div>
-          
-          <div className="flex items-start space-x-2">
-            <input
-              type="radio"
-              id="adaptive"
-              name="writingStyle"
-              value="adaptive"
-              checked={writingStyle === "adaptive"}
-              onChange={() => setWritingStyle("adaptive")}
-              className="h-4 w-4 text-blue-600 mt-1"
-            />
-            <div>
-              <label htmlFor="adaptive" className="text-gray-700 font-medium block">Mijn eigen stijl</label>
-              <p className="text-sm text-gray-500">AI past zich aan jouw antwoorden aan</p>
+              <p className="text-sm text-yellow-800">
+                <strong>Geen zorgen:</strong> Je kunt de schrijfstijl later altijd aanpassen. We kunnen zelfs verschillende stijlen combineren voor verschillende hoofdstukken.
+              </p>
             </div>
           </div>
         </div>
         
-        <div className="mt-6 flex justify-between">
+        <div className="mt-8 flex justify-between">
           <button
             type="button"
             onClick={goToPreviousStep}
-            className="text-blue-600 px-4 py-2 rounded border border-blue-600 hover:bg-blue-50 transition-colors"
+            className="text-blue-600 px-6 py-3 rounded-lg border border-blue-600 hover:bg-blue-50 transition-colors"
           >
-            Vorige stap
+            ← Vorige stap
           </button>
           <button
             type="button"
             onClick={goToNextStep}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+            className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Volgende stap
+            Volgende stap →
           </button>
         </div>
       </div>
@@ -578,69 +789,80 @@ export default function StartPage() {
 
   const renderStep5 = () => {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">5. Hoe wil je vragen ontvangen?</h2>
+      <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold mb-2">📱 Hoe wil je contact houden?</h2>
+          <p className="text-gray-600">Kies je voorkeuren voor communicatie</p>
+        </div>
         
-        <div className="space-y-3 mb-6">
-          <div className="flex items-center space-x-2">
+        <div className="space-y-4 mb-6">
+          <div className="flex items-center">
             <input
               type="checkbox"
               id="whatsapp"
               checked={communicationMethods.whatsapp}
               onChange={() => setCommunicationMethods({...communicationMethods, whatsapp: !communicationMethods.whatsapp})}
-              className="h-4 w-4 text-blue-600 rounded"
+              className="h-5 w-5 text-blue-600 rounded mr-3"
             />
-            <label htmlFor="whatsapp" className="text-gray-700">Via WhatsApp</label>
+            <label htmlFor="whatsapp" className="text-gray-700">
+              Via WhatsApp
+            </label>
           </div>
           
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center">
             <input
               type="checkbox"
               id="email"
               checked={communicationMethods.email}
               onChange={() => setCommunicationMethods({...communicationMethods, email: !communicationMethods.email})}
-              className="h-4 w-4 text-blue-600 rounded"
+              className="h-5 w-5 text-blue-600 rounded mr-3"
             />
-            <label htmlFor="email" className="text-gray-700">Via e-mail</label>
+            <label htmlFor="email" className="text-gray-700">
+              Via e-mail
+            </label>
           </div>
           
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center">
             <input
               type="checkbox"
               id="dashboard"
               checked={communicationMethods.dashboard}
               onChange={() => setCommunicationMethods({...communicationMethods, dashboard: !communicationMethods.dashboard})}
-              className="h-4 w-4 text-blue-600 rounded"
+              className="h-5 w-5 text-blue-600 rounded mr-3"
             />
-            <label htmlFor="dashboard" className="text-gray-700">Via het dashboard</label>
+            <label htmlFor="dashboard" className="text-gray-700">
+              Via het dashboard
+            </label>
           </div>
           
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center">
             <input
               type="checkbox"
               id="voice"
               checked={communicationMethods.voice}
               onChange={() => setCommunicationMethods({...communicationMethods, voice: !communicationMethods.voice})}
-              className="h-4 w-4 text-blue-600 rounded"
+              className="h-5 w-5 text-blue-600 rounded mr-3"
             />
-            <label htmlFor="voice" className="text-gray-700">Spraakberichten toestaan</label>
+            <label htmlFor="voice" className="text-gray-700">
+              Spraakberichten toestaan
+            </label>
           </div>
         </div>
         
-        <div className="mt-6 flex justify-between">
+        <div className="mt-8 flex justify-between">
           <button
             type="button"
             onClick={goToPreviousStep}
-            className="text-blue-600 px-4 py-2 rounded border border-blue-600 hover:bg-blue-50 transition-colors"
+            className="text-blue-600 px-6 py-3 rounded-lg border border-blue-600 hover:bg-blue-50 transition-colors"
           >
-            Vorige stap
+            ← Vorige stap
           </button>
           <button
             type="button"
             onClick={goToNextStep}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+            className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Volgende stap
+            Volgende stap →
           </button>
         </div>
       </div>
@@ -649,68 +871,73 @@ export default function StartPage() {
 
   const renderStep6 = () => {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">6. Levering van het eindresultaat</h2>
+      <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold mb-2">📦 Levering van het eindresultaat</h2>
+          <p className="text-gray-600">Kies hoe je het verhaal wilt ontvangen</p>
+        </div>
         
-        <div className="mb-6">
-          <h3 className="text-lg font-medium mb-3">📄 Levering</h3>
+        <div className="space-y-4 mb-6">
+          <div className="flex items-center">
+            <input
+              type="radio"
+              id="book"
+              name="deliveryFormat"
+              value="book"
+              checked={deliveryFormat === "book"}
+              onChange={() => setDeliveryFormat("book")}
+              className="h-5 w-5 text-blue-600 rounded mr-3"
+            />
+            <label htmlFor="book" className="text-gray-700">
+              Gedrukt boek
+            </label>
+          </div>
           
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="book"
-                name="deliveryFormat"
-                value="book"
-                checked={deliveryFormat === "book"}
-                onChange={() => setDeliveryFormat("book")}
-                className="h-4 w-4 text-blue-600"
-              />
-              <label htmlFor="book" className="text-gray-700">Gedrukt boek</label>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="pdf"
-                name="deliveryFormat"
-                value="pdf"
-                checked={deliveryFormat === "pdf"}
-                onChange={() => setDeliveryFormat("pdf")}
-                className="h-4 w-4 text-blue-600"
-              />
-              <label htmlFor="pdf" className="text-gray-700">PDF</label>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="both"
-                name="deliveryFormat"
-                value="both"
-                checked={deliveryFormat === "both"}
-                onChange={() => setDeliveryFormat("both")}
-                className="h-4 w-4 text-blue-600"
-              />
-              <label htmlFor="both" className="text-gray-700">Beide</label>
-            </div>
+          <div className="flex items-center">
+            <input
+              type="radio"
+              id="pdf"
+              name="deliveryFormat"
+              value="pdf"
+              checked={deliveryFormat === "pdf"}
+              onChange={() => setDeliveryFormat("pdf")}
+              className="h-5 w-5 text-blue-600 rounded mr-3"
+            />
+            <label htmlFor="pdf" className="text-gray-700">
+              PDF
+            </label>
+          </div>
+          
+          <div className="flex items-center">
+            <input
+              type="radio"
+              id="both"
+              name="deliveryFormat"
+              value="both"
+              checked={deliveryFormat === "both"}
+              onChange={() => setDeliveryFormat("both")}
+              className="h-5 w-5 text-blue-600 rounded mr-3"
+            />
+            <label htmlFor="both" className="text-gray-700">
+              Beide
+            </label>
           </div>
         </div>
         
-        <div className="mt-6 flex justify-between">
+        <div className="mt-8 flex justify-between">
           <button
             type="button"
             onClick={goToPreviousStep}
-            className="text-blue-600 px-4 py-2 rounded border border-blue-600 hover:bg-blue-50 transition-colors"
+            className="text-blue-600 px-6 py-3 rounded-lg border border-blue-600 hover:bg-blue-50 transition-colors"
           >
-            Vorige stap
+            ← Vorige stap
           </button>
           <button
             type="button"
             onClick={goToNextStep}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+            className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Volgende stap
+            Volgende stap →
           </button>
         </div>
       </div>
@@ -719,68 +946,71 @@ export default function StartPage() {
 
   const renderStep7 = () => {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">7. Voortgang volgen en aanpassen</h2>
-        
-        <div className="space-y-6 mb-8">
-          <div className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
-            <h3 className="font-medium text-blue-800">Voortgang volgen</h3>
-            <p className="text-blue-700 mt-1">
-              Je kunt altijd de voortgang volgen in je dashboard. Je ziet precies welke hoofdstukken al klaar zijn en wat nog ontbreekt.
-            </p>
-          </div>
-          
-          <div className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
-            <h3 className="font-medium text-blue-800">Zelf bewerken</h3>
-            <p className="text-blue-700 mt-1">
-              Je kunt op elk moment hoofdstukken bewerken of herschrijven. Het is en blijft jouw verhaal.
-            </p>
-          </div>
-          
-          <div className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
-            <h3 className="font-medium text-blue-800">Media toevoegen</h3>
-            <p className="text-blue-700 mt-1">
-              Voeg eenvoudig foto&apos;s en video&apos;s toe aan je verhaal om het persoonlijker te maken.
-            </p>
-          </div>
+      <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold mb-2">✅ Overzicht en starten</h2>
+          <p className="text-gray-600">Controleer je keuzes en begin met schrijven</p>
         </div>
         
-        <div className="bg-gray-100 rounded-lg p-6 mb-6">
-          <h3 className="font-medium mb-2">Samenvatting van je keuzes</h3>
-          <ul className="space-y-2 text-sm text-gray-600">
-            <li><span className="font-medium">Verhaal over:</span> {subjectType === "self" ? "Mezelf" : `${personName} (${relationship})`}</li>
-            <li><span className="font-medium">Periode:</span> {
-              periodType === "fullLife" ? "Het hele leven" : 
+        <div className="space-y-4 mb-6">
+          <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-gray-400">
+            <h3 className="font-medium text-gray-800">Onderwerp</h3>
+            <p className="text-gray-700 mt-1">
+              {subjectType === "self" ? "Mijn eigen verhaal" : 
+                `Het verhaal van ${personName} (${relationship})${isDeceased ? " 🕊️ - Memorial verhaal" : ""}`}
+            </p>
+            {subjectType === "other" && (birthYear || passedAwayYear) && (
+              <p className="text-gray-600 text-sm mt-1">
+                {birthYear && `Geboren: ${birthYear}`}
+                {birthYear && passedAwayYear && " • "}
+                {passedAwayYear && `Overleden: ${passedAwayYear}`}
+              </p>
+            )}
+          </div>
+          
+          <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-gray-400">
+            <h3 className="font-medium text-gray-800">Periode of thema</h3>
+            <p className="text-gray-700 mt-1">
+              {periodType === "fullLife" ? "Het hele leven" : 
               periodType === "youth" ? "Alleen de jeugd" : 
-              periodType === "specificPeriod" ? `Periode van ${startYear} tot ${endYear}` :
-              `Thema: ${theme}`
-            }</li>
-            <li><span className="font-medium">Schrijfstijl:</span> {
+              periodType === "specificPeriod" ? `Van ${startYear} tot ${endYear}` :
+              `Thema: ${theme}`}
+            </p>
+          </div>
+          
+          <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-gray-400">
+            <h3 className="font-medium text-gray-800">Schrijfstijl</h3>
+            <p className="text-gray-700 mt-1">
+              {writingStyle === "neutral" ? "Neutrale stijl (helder, toegankelijk)" :
               writingStyle === "isaacson" ? "Walter Isaacson (feitelijk, biografisch)" : 
               writingStyle === "gul" ? "Lale Gül (persoonlijk, direct)" : 
               writingStyle === "tellegen" ? "Toon Tellegen (poëtisch)" :
-              "Adaptief (past zich aan jouw stijl aan)"
-            }</li>
-            <li><span className="font-medium">Levering:</span> {
-              deliveryFormat === "book" ? "Gedrukt boek" : 
+              "Adaptief (past zich aan jouw stijl aan)"}
+            </p>
+          </div>
+          
+          <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-gray-400">
+            <h3 className="font-medium text-gray-800">Levering</h3>
+            <p className="text-gray-700 mt-1">
+              {deliveryFormat === "book" ? "Gedrukt boek" : 
               deliveryFormat === "pdf" ? "PDF" : 
-              "Gedrukt boek en PDF"
-            }</li>
-          </ul>
+              "Gedrukt boek en PDF"}
+            </p>
+          </div>
         </div>
         
-        <div className="mt-6 flex justify-between">
+        <div className="mt-8 flex justify-between">
           <button
             type="button"
             onClick={goToPreviousStep}
-            className="text-blue-600 px-4 py-2 rounded border border-blue-600 hover:bg-blue-50 transition-colors"
+            className="text-blue-600 px-6 py-3 rounded-lg border border-blue-600 hover:bg-blue-50 transition-colors"
           >
-            Vorige stap
+            ← Vorige stap
           </button>
           <button
             type="button"
             onClick={handleCreateStory}
-            className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors text-lg font-medium"
+            className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors"
             disabled={isLoading}
           >
             {isLoading ? "Even geduld..." : "Start mijn verhaal"}
@@ -805,16 +1035,15 @@ export default function StartPage() {
   return (
     <ProtectedRoute>
       <Navigation />
-      <main className="max-w-3xl mx-auto px-6 py-12 space-y-6">
-        <div className="flex items-center space-x-2 text-blue-600">
-          <span className="text-xl">🧭</span>
-          <h1 className="text-3xl font-bold">Begin je verhaal</h1>
+      <main className="max-w-4xl mx-auto px-6 py-12">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            <span className="text-blue-600">✨</span> Begin je verhaal
+          </h1>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            Laten we samen je verhaal vormgeven. We begeleiden je stap voor stap en je kunt alles later nog aanpassen.
+          </p>
         </div>
-        
-        <p className="text-gray-600">
-          Laten we je verhaal stap voor stap opbouwen. We hebben een paar vragen over hoe je verhaal eruit moet zien.
-          Je kunt je keuzes later altijd aanpassen.
-        </p>
 
         {renderStepIndicator()}
         

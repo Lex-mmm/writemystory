@@ -34,43 +34,61 @@ export async function GET(request: NextRequest) {
     // Set user context for RLS
     await setUserContext(userId);
 
-    // Get questions for this story from Supabase
-    const { data: questions, error: questionsError } = await supabase
+    // Get questions for this story with their answers - updated query
+    const { data: questionsData, error: questionsError } = await supabase
       .from('questions')
-      .select('*')
+      .select(`
+        *,
+        answers!left(
+          id,
+          answer,
+          status,
+          skip_reason,
+          created_at,
+          updated_at
+        )
+      `)
       .eq('story_id', storyId)
-      .order('priority', { ascending: true });
+      .order('priority', { ascending: false })
+      .order('created_at', { ascending: true });
 
     if (questionsError) {
       console.error('Error fetching questions:', questionsError);
-      return NextResponse.json({ error: 'Failed to fetch questions' }, { status: 500 });
+      return NextResponse.json({ 
+        error: 'Failed to fetch questions', 
+        details: questionsError.message 
+      }, { status: 500 });
     }
 
-    // Get answers for these questions
-    const { data: answers, error: answersError } = await supabase
-      .from('answers')
-      .select('*')
-      .eq('story_id', storyId);
-
-    if (answersError) {
-      console.error('Error fetching answers:', answersError);
-    }
-
-    // Merge questions with their answers
-    const questionsWithAnswers = questions?.map(question => {
-      const answer = answers?.find(a => a.question_id === question.id);
+    // Transform the data to include answer status
+    const questions = questionsData?.map(question => {
+      const answer = question.answers?.[0]; // Get the first (should be only) answer
       return {
-        ...question,
-        status: answer ? 'answered' : 'pending',
-        answeredAt: answer?.created_at || null,
-        answer: answer?.answer || null
+        id: question.id,
+        story_id: question.story_id,
+        category: question.category,
+        question: question.question,
+        type: question.type,
+        priority: question.priority,
+        created_at: question.created_at,
+        status: answer ? (answer.status || 'answered') : (question.status || 'pending'),
+        answer: answer?.answer,
+        skipped_reason: answer?.skip_reason,
+        answeredAt: answer?.created_at
       };
     }) || [];
-    
-    return NextResponse.json({ questions: questionsWithAnswers });
+
+    return NextResponse.json({
+      success: true,
+      questions
+    });
+
   } catch (error) {
-    console.error('Error fetching questions:', error);
-    return NextResponse.json({ error: 'Failed to fetch questions' }, { status: 500 });
+    console.error('Error in GET /api/questions:', error);
+    return NextResponse.json({ 
+      error: 'Failed to fetch questions', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 }
 
@@ -83,7 +101,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { storyId, userId, type } = body;
+    const { storyId, userId, type = "basic" } = body;
 
     if (!storyId || !userId) {
       return NextResponse.json({ error: 'Story ID and User ID are required' }, { status: 400 });
@@ -91,6 +109,35 @@ export async function POST(request: NextRequest) {
 
     // Set user context for RLS
     await setUserContext(userId);
+
+    if (type === "smart") {
+      // Redirect to the new smart question generation
+      const response = await fetch(`${request.nextUrl.origin}/api/generate-questions`, {
+        method: 'POST',
+        headers: request.headers,
+        body: JSON.stringify({ projectId: storyId, userId })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Fetch the updated questions
+        const questionsResponse = await fetch(`${request.nextUrl.origin}/api/questions?storyId=${storyId}&userId=${userId}`, {
+          headers: request.headers
+        });
+        
+        const questionsData = await questionsResponse.json();
+        
+        return NextResponse.json({
+          success: true,
+          questions: questionsData.questions || [],
+          analysis: data.analysis,
+          message: `${data.questionsGenerated} slimme vragen gegenereerd op basis van je antwoorden`
+        });
+      } else {
+        return NextResponse.json(data, { status: response.status });
+      }
+    }
 
     if (type === 'generate') {
       // Generate new questions for the story
@@ -181,19 +228,22 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: 'Invalid request type' }, { status: 400 });
   } catch (error) {
-    console.error('Error handling question request:', error);
-    return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
+    console.error('Error in POST /api/questions:', error);
+    return NextResponse.json({ 
+      error: 'Failed to process request', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 }
 
 function generateQuestionsForStory(storyId: string) {
-  // Generate more diverse questions across life periods
+  // Generate more comprehensive and diverse questions across life periods
   const baseQuestions = [
-    // Early childhood
+    // Early life & family
     {
       story_id: storyId,
       category: 'early_life',
-      question: "Kun je me vertellen over de plek waar je bent opgegroeid? Hoe zag je buurt eruit?",
+      question: "Waar ben je geboren en opgegroeid? Beschrijf je geboorteplaats.",
       type: 'open',
       priority: 1
     },
@@ -211,6 +261,13 @@ function generateQuestionsForStory(storyId: string) {
       type: 'open',
       priority: 3
     },
+    {
+      story_id: storyId,
+      category: 'family',
+      question: "Heb je broers of zussen? Wat is je mooiste herinnering met hen?",
+      type: 'open',
+      priority: 4
+    },
     
     // School years
     {
@@ -218,37 +275,118 @@ function generateQuestionsForStory(storyId: string) {
       category: 'school',
       question: "Wat herinner je je van je eerste schooldag? Hoe voelde dat?",
       type: 'open',
-      priority: 4
-    },
-    {
-      story_id: storyId,
-      category: 'education',
-      question: "Welke leraar of docent heeft de meeste indruk op je gemaakt?",
-      type: 'open',
       priority: 5
     },
     {
       story_id: storyId,
-      category: 'friends',
-      question: "Wie was je beste vriend(in) tijdens je schooltijd?",
+      category: 'education',
+      question: "Welke leraar of docent heeft de meeste indruk op je gemaakt en waarom?",
       type: 'open',
       priority: 6
     },
-    
-    // Young adult
     {
       story_id: storyId,
-      category: 'career',
-      question: "Wat was je eerste baantje? Hoe was die ervaring?",
+      category: 'friends',
+      question: "Wie was je beste vriend(in) tijdens je schooltijd? Wat deden jullie samen?",
       type: 'open',
       priority: 7
     },
     {
       story_id: storyId,
-      category: 'independence',
-      question: "Wanneer ben je voor het eerst op jezelf gaan wonen?",
+      category: 'school',
+      question: "Welk schoolvak vond je het leukst en welk vond je het moeilijkst?",
       type: 'open',
       priority: 8
+    },
+    
+    // Young adult & career
+    {
+      story_id: storyId,
+      category: 'career',
+      question: "Wat was je eerste baantje? Hoe was die ervaring?",
+      type: 'open',
+      priority: 9
+    },
+    {
+      story_id: storyId,
+      category: 'independence',
+      question: "Wanneer ben je voor het eerst op jezelf gaan wonen? Hoe voelde dat?",
+      type: 'open',
+      priority: 10
+    },
+    {
+      story_id: storyId,
+      category: 'relationships',
+      question: "Hoe heb je je partner ontmoet? (indien van toepassing)",
+      type: 'open',
+      priority: 11
+    },
+    {
+      story_id: storyId,
+      category: 'milestones',
+      question: "Wat was een belangrijk keerpunt in je leven?",
+      type: 'open',
+      priority: 12
+    },
+    
+    // Personal interests & values
+    {
+      story_id: storyId,
+      category: 'hobbies',
+      question: "Wat zijn je hobby's of interesses? Hoe ben je daaraan begonnen?",
+      type: 'open',
+      priority: 13
+    },
+    {
+      story_id: storyId,
+      category: 'achievements',
+      question: "Waar ben je het meest trots op in je leven?",
+      type: 'open',
+      priority: 14
+    },
+    {
+      story_id: storyId,
+      category: 'challenges',
+      question: "Wat was een moeilijke periode in je leven en hoe heb je dat overwonnen?",
+      type: 'open',
+      priority: 15
+    },
+    {
+      story_id: storyId,
+      category: 'wisdom',
+      question: "Welk advies zou je aan je jongere zelf geven?",
+      type: 'open',
+      priority: 16
+    },
+    
+    // Additional life aspects
+    {
+      story_id: storyId,
+      category: 'travel',
+      question: "Wat is de mooiste reis die je ooit hebt gemaakt?",
+      type: 'open',
+      priority: 17
+    },
+    {
+      story_id: storyId,
+      category: 'traditions',
+      question: "Welke tradities of gewoonten zijn belangrijk voor je (familie)?",
+      type: 'open',
+      priority: 18
+    },
+    {
+      story_id: storyId,
+      category: 'legacy',
+      question: "Hoe wil je herinnerd worden? Wat wil je doorgeven aan volgende generaties?",
+      type: 'open',
+      priority: 19
+    },
+    {
+      story_id: storyId,
+      category: 'gratitude',
+      question: "Voor wat ben je het meest dankbaar in je leven?",
+      type: 'open',
+      priority: 20
     }
   ];
 
@@ -257,27 +395,60 @@ function generateQuestionsForStory(storyId: string) {
 
 async function updateStoryProgress(storyId: string) {
   try {
-    // Get all questions categorized by life periods
-    const { data: questions } = await supabase
+    // Get all questions for this story
+    const { data: questionsData } = await supabase
       .from('questions')
-      .select('id, category')
+      .select(`
+        id,
+        category,
+        answers!left(
+          id,
+          answer
+        )
+      `)
       .eq('story_id', storyId);
 
-    // Get all answers
-    const { data: answers } = await supabase
-      .from('answers')
-      .select('question_id')
-      .eq('story_id', storyId);
+    if (!questionsData) {
+      console.log('No questions found for story:', storyId);
+      return;
+    }
 
-    const answerIds = new Set(answers?.map(a => a.question_id) || []);
+    // Filter questions that have actual answers
+    const allQuestions = questionsData;
+    const answeredQuestions = questionsData.filter(q => {
+      const answer = q.answers?.[0];
+      return answer && answer.answer && answer.answer.trim().length > 0;
+    });
+
+    console.log(`Progress update: ${answeredQuestions.length}/${allQuestions.length} questions answered`);
 
     // Define life periods and their categories
     const lifePeriods = {
-      'early_childhood': ['early_life', 'family', 'childhood'],
-      'school_years': ['school', 'education', 'friends'],
-      'young_adult': ['career', 'relationships', 'independence'],
-      'adult_life': ['work', 'marriage', 'achievements'],
-      'later_life': ['retirement', 'wisdom', 'legacy']
+      'early_childhood': {
+        name: 'Vroege Jeugd',
+        icon: '🍼',
+        categories: ['early_life', 'family', 'childhood']
+      },
+      'school_years': {
+        name: 'Schooltijd', 
+        icon: '🎓',
+        categories: ['school', 'education', 'friends']
+      },
+      'young_adult': {
+        name: 'Jong Volwassen',
+        icon: '🌟', 
+        categories: ['career', 'relationships', 'independence']
+      },
+      'adult_life': {
+        name: 'Volwassen Leven',
+        icon: '💼',
+        categories: ['work', 'marriage', 'achievements', 'hobbies', 'travel']
+      },
+      'later_life': {
+        name: 'Later Leven',
+        icon: '🌅',
+        categories: ['retirement', 'wisdom', 'legacy', 'challenges']
+      }
     };
 
     // Calculate progress per period
@@ -285,38 +456,63 @@ async function updateStoryProgress(storyId: string) {
       answered: number;
       total: number;
       percentage: number;
+      name: string;
+      icon: string;
       categories: string[];
     }> = {};
 
-    for (const [period, categories] of Object.entries(lifePeriods)) {
-      const periodQuestions = questions?.filter(q => categories.includes(q.category)) || [];
-      const answeredCount = periodQuestions.filter(q => answerIds.has(q.id)).length;
+    for (const [periodKey, periodInfo] of Object.entries(lifePeriods)) {
+      const periodQuestions = allQuestions.filter(q => 
+        periodInfo.categories.includes(q.category)
+      );
+      const periodAnswered = answeredQuestions.filter(q => 
+        periodInfo.categories.includes(q.category)
+      );
       
-      periodProgress[period] = {
-        answered: answeredCount,
+      periodProgress[periodKey] = {
+        answered: periodAnswered.length,
         total: periodQuestions.length,
-        percentage: periodQuestions.length > 0 ? Math.round((answeredCount / periodQuestions.length) * 100) : 0,
-        categories
+        percentage: periodQuestions.length > 0 
+          ? Math.round((periodAnswered.length / periodQuestions.length) * 100) 
+          : 0,
+        name: periodInfo.name,
+        icon: periodInfo.icon,
+        categories: periodInfo.categories
       };
     }
 
     // Calculate overall progress
-    const totalQuestions = questions?.length || 0;
-    const totalAnswered = answers?.length || 0;
-    const overallProgress = totalQuestions > 0 ? Math.min(95, 10 + (totalAnswered / totalQuestions) * 80) : 15;
+    const totalQuestions = allQuestions.length;
+    const totalAnswered = answeredQuestions.length;
+    const overallProgress = totalQuestions > 0 
+      ? Math.round((totalAnswered / totalQuestions) * 100) 
+      : 15; // Default minimum progress
 
-    // Update story progress with detailed breakdown
-    await supabase
+    console.log('Updating project with progress:', {
+      overall: overallProgress,
+      periods: Object.keys(periodProgress).length,
+      totalAnswered,
+      totalQuestions
+    });
+
+    // Update project with detailed progress
+    const { error: updateError } = await supabase
       .from('projects')
       .update({ 
-        progress: Math.round(overallProgress),
-        progress_detail: periodProgress
+        progress: overallProgress,
+        progress_detail: periodProgress,
+        updated_at: new Date().toISOString()
       })
       .eq('id', storyId);
 
+    if (updateError) {
+      console.error('Error updating project progress:', updateError);
+    } else {
+      console.log('Successfully updated project progress');
+    }
+
   } catch (error) {
-    console.error('Error updating story progress:', error);
-    // Don't throw, just log the error
+    console.error('Error in updateStoryProgress:', error);
   }
 }
 
