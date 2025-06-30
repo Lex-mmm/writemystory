@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
-  // Skip during build time
-  if (process.env.NODE_ENV === 'production' && !process.env.ADMIN_ACCESS_TOKEN) {
+  // Skip during build time or when admin service is not available
+  if (process.env.NEXT_PHASE === 'phase-production-build' || 
+      process.env.NODE_ENV === 'production' && !process.env.ADMIN_ACCESS_TOKEN) {
     return NextResponse.json({ error: 'Admin service not available during build' }, { status: 503 });
   }
 

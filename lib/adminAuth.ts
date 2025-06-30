@@ -19,22 +19,28 @@ export function validateAdminToken(request: NextRequest): {
     };
   }
 
+  // Check both authorization header and x-admin-token header
   const authHeader = request.headers.get('authorization');
+  const adminTokenHeader = request.headers.get('x-admin-token');
   
-  if (!authHeader) {
+  let token = '';
+  
+  if (authHeader) {
+    // Support both "Bearer token" and "token" formats
+    token = authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7) 
+      : authHeader;
+  } else if (adminTokenHeader) {
+    token = adminTokenHeader;
+  } else {
     return { 
       isValid: false, 
-      error: 'Authorization header is required' 
+      error: 'Authorization header or x-admin-token header is required' 
     };
   }
 
-  // Support both "Bearer token" and "token" formats
-  const token = authHeader.startsWith('Bearer ') 
-    ? authHeader.slice(7) 
-    : authHeader;
-
   if (token !== adminSecret) {
-    console.warn('Invalid admin token attempted');
+    console.warn('Invalid admin token attempted. Expected:', adminSecret?.substring(0, 3) + '...', 'Got:', token?.substring(0, 3) + '...');
     return { 
       isValid: false, 
       error: 'Invalid admin token' 

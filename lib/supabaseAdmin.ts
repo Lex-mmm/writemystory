@@ -15,6 +15,21 @@ if (!supabaseServiceKey) {
   throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable');
 }
 
+// Debug the service key format
+console.log('Service key length:', supabaseServiceKey.length);
+console.log('Service key starts with:', supabaseServiceKey.substring(0, 20));
+
+// Decode JWT to check if it has the correct role
+try {
+  const payload = JSON.parse(atob(supabaseServiceKey.split('.')[1]));
+  console.log('JWT payload role:', payload.role || payload.rose); // Check for typo
+  if (payload.rose && !payload.role) {
+    console.error('⚠️  Service key has "rose" instead of "role" - this key is invalid!');
+  }
+} catch (e) {
+  console.error('Could not decode service key JWT:', e);
+}
+
 // Ensure we're not accidentally using the service role key on the client side
 if (typeof window !== 'undefined') {
   throw new Error('Supabase admin client should only be used on the server side');
