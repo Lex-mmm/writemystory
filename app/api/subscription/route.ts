@@ -3,6 +3,12 @@ import { stripe } from '../../../lib/stripe';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 
 export async function GET(request: NextRequest) {
+  // Build-time protection
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn('Supabase service role key not available');
+    return NextResponse.json({ error: 'Service temporarily unavailable' }, { status: 503 });
+  }
+
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
 

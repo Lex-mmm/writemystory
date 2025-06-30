@@ -1,50 +1,65 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Admin client with service role key for full database access
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-// Validate environment variables
-if (!supabaseUrl) {
-  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable');
-}
-
-if (!supabaseServiceKey) {
-  console.error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable');
-  console.error('Available env vars:', Object.keys(process.env).filter(key => key.includes('SUPABASE')));
-  throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable');
-}
-
-// Debug the service key format
-console.log('Service key length:', supabaseServiceKey.length);
-console.log('Service key starts with:', supabaseServiceKey.substring(0, 20));
-
-// Decode JWT to check if it has the correct role
-try {
-  const payload = JSON.parse(atob(supabaseServiceKey.split('.')[1]));
-  console.log('JWT payload role:', payload.role || payload.rose); // Check for typo
-  if (payload.rose && !payload.role) {
-    console.error('⚠️  Service key has "rose" instead of "role" - this key is invalid!');
-  }
-} catch (e) {
-  console.error('Could not decode service key JWT:', e);
-}
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dummy.supabase.co';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Ensure we're not accidentally using the service role key on the client side
 if (typeof window !== 'undefined') {
   throw new Error('Supabase admin client should only be used on the server side');
 }
 
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
+// Create the admin client - use dummy values for build time if missing
+const createAdminClient = () => {
+  if (!supabaseServiceKey) {
+    // During build time or when service key is missing, create a dummy client
+    console.warn('Missing SUPABASE_SERVICE_ROLE_KEY environment variable - admin features will not work');
+    return createClient(
+      supabaseUrl, 
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkdW1teSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE2NDA5OTUyMDB9.dummy', 
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
   }
-});
+
+  // Debug the service key format only when we have a key
+  console.log('Service key length:', supabaseServiceKey.length);
+  console.log('Service key starts with:', supabaseServiceKey.substring(0, 20));
+
+  // Decode JWT to check if it has the correct role
+  try {
+    const payload = JSON.parse(atob(supabaseServiceKey.split('.')[1]));
+    console.log('JWT payload role:', payload.role || payload.rose); // Check for typo
+    if (payload.rose && !payload.role) {
+      console.error('⚠️  Service key has "rose" instead of "role" - this key is invalid!');
+    }
+  } catch (e) {
+    console.error('Could not decode service key JWT:', e);
+  }
+
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+};
+
+export const supabaseAdmin = createAdminClient();
 
 // Test admin connection function
 export async function testAdminConnection() {
   try {
+    // Check if we have a real service key
+    if (!supabaseServiceKey) {
+      console.warn('No service key available - admin features disabled');
+      return false;
+    }
+
     console.log('Testing admin connection...');
     console.log('Supabase URL:', supabaseUrl);
     console.log('Service key length:', supabaseServiceKey?.length || 0);

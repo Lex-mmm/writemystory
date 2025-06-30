@@ -7,6 +7,12 @@ import {
 import { TwilioWebhookBody } from '../../../../lib/whatsappTypes';
 
 export async function POST(request: NextRequest) {
+  // Build-time protection
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn('Supabase service role key not available');
+    return NextResponse.json({ error: 'Service temporarily unavailable' }, { status: 503 });
+  }
+
   try {
     // Parse the webhook data from Twilio
     const formData = await request.formData();

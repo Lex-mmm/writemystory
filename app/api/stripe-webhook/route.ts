@@ -5,6 +5,12 @@ import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 export async function POST(request: NextRequest) {
+  // Build-time protection
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn('Supabase service role key not available');
+    return NextResponse.json({ error: 'Service temporarily unavailable' }, { status: 503 });
+  }
+
   if (!stripe || !webhookSecret) {
     return NextResponse.json(
       { error: 'Stripe not configured' },
