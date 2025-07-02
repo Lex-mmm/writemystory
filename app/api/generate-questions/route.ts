@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabase';
 import { createMessagesWithSystemPrompt, TOGETHER_AI_CONFIG } from '../../../lib/aiPrompts';
+import { getUserSubscription, checkQuestionLimit, canAccessFeature } from '../../../lib/subscriptionCheck';
 
 // Helper function to set user context for RLS
 async function setUserContext(userId: string) {
@@ -546,7 +547,32 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log(`Generating smart questions for project ${projectId}`);
+    // Check user subscription and plan limits
+    const userSubscription = await getUserSubscription(userId);
+    const userPlan = userSubscription.plan;
+
+    // Check if user can access smart questions
+    if (type === 'smart' && !canAccessFeature(userPlan, 'hasSmartQuestions')) {
+      return NextResponse.json({
+        error: 'Smart questions are not available in your plan',
+        upgradeRequired: true,
+        currentPlan: userPlan
+      }, { status: 403 });
+    }
+
+    // Check question limit for this project
+    const questionLimit = await checkQuestionLimit(projectId, userPlan);
+    if (!questionLimit.canCreate) {
+      return NextResponse.json({
+        error: `Question limit reached (${questionLimit.currentCount}/${questionLimit.limit}). Upgrade your plan for more questions.`,
+        upgradeRequired: true,
+        currentPlan: userPlan,
+        limit: questionLimit.limit,
+        currentCount: questionLimit.currentCount
+      }, { status: 403 });
+    }
+
+    console.log(`Generating smart questions for project ${projectId} (Plan: ${userPlan})`);
 
     // Step 1: Fetch project and answered questions
     const data = await fetchProjectAndAnswers(projectId, userId);

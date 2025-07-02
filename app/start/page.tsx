@@ -21,6 +21,8 @@ export default function StartPage() {
   const [relationship, setRelationship] = useState<string>("");
   const [isDeceased, setIsDeceased] = useState<boolean>(false);
   const [passedAwayYear, setPassedAwayYear] = useState<string>("");
+  const [whatsappChatFile, setWhatsappChatFile] = useState<File | null>(null);
+  const [includeWhatsappChat, setIncludeWhatsappChat] = useState<boolean>(false);
   
   // Step 2: Collaborators
   const [collaborators, setCollaborators] = useState<{
@@ -88,14 +90,8 @@ export default function StartPage() {
       const apiUrl = '/api/stories';
       
       const token = await getIdToken();
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
       
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
+      // Prepare story data
       const storyData = {
         userId: user.id || "default-user-id",
         email: user.email,
@@ -116,13 +112,52 @@ export default function StartPage() {
         deliveryFormat,
         createdAt: new Date().toISOString(),
         status: "active",
+        includeWhatsappChat
       };
 
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(storyData),
-      });
+      let response;
+      
+      // If we have a WhatsApp file, use FormData, otherwise use JSON
+      if (includeWhatsappChat && whatsappChatFile) {
+        const formData = new FormData();
+        
+        // Add all the story data
+        Object.entries(storyData).forEach(([key, value]) => {
+          if (Array.isArray(value) || typeof value === 'object') {
+            formData.append(key, JSON.stringify(value));
+          } else {
+            formData.append(key, value.toString());
+          }
+        });
+        
+        // Add WhatsApp file
+        formData.append('whatsappChatFile', whatsappChatFile);
+        
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        response = await fetch(apiUrl, {
+          method: "POST",
+          headers,
+          body: formData,
+        });
+      } else {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        response = await fetch(apiUrl, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(storyData),
+        });
+      }
 
       const data = await response.json();
 
@@ -369,6 +404,76 @@ export default function StartPage() {
                       className="w-full border border-yellow-300 p-3 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-yellow-50"
                       placeholder="Bijv. 2023"
                     />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* WhatsApp Chat Upload Option */}
+            <div className="border-t pt-4 mt-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <input
+                  type="checkbox"
+                  id="includeWhatsappChat"
+                  checked={includeWhatsappChat}
+                  onChange={(e) => setIncludeWhatsappChat(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 rounded"
+                />
+                <label htmlFor="includeWhatsappChat" className="text-sm font-medium text-gray-700">
+                  💬 WhatsApp gesprekken toevoegen
+                </label>
+              </div>
+              
+              {includeWhatsappChat && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start space-x-2">
+                    <span className="text-green-600 mt-0.5">💚</span>
+                    <div>
+                      <p className="text-sm text-green-800 font-medium">
+                        WhatsApp gesprekken toevoegen
+                      </p>
+                      <p className="text-xs text-green-700 mt-1">
+                        Upload WhatsApp gesprekken om extra herinneringen en verhalen te gebruiken. {isDeceased ? 'Vooral waardevol voor memorial verhalen.' : 'Geeft extra context voor je levensverhaal.'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-green-800 mb-2">
+                      📱 WhatsApp chat bestand (.txt)
+                    </label>
+                    <div className="border-2 border-dashed border-green-300 rounded-lg p-4 text-center bg-green-50">
+                      <input
+                        type="file"
+                        accept=".txt"
+                        onChange={(e) => setWhatsappChatFile(e.target.files?.[0] || null)}
+                        className="hidden"
+                        id="whatsappFile"
+                      />
+                      <label htmlFor="whatsappFile" className="cursor-pointer">
+                        {whatsappChatFile ? (
+                          <div className="text-green-700">
+                            <p className="font-medium">📁 {whatsappChatFile.name}</p>
+                            <p className="text-sm">Klik om een ander bestand te selecteren</p>
+                          </div>
+                        ) : (
+                          <div className="text-green-600">
+                            <p className="font-medium">📱 Klik om WhatsApp chat te uploaden</p>
+                            <p className="text-sm">Alleen .txt bestanden</p>
+                          </div>
+                        )}
+                      </label>
+                    </div>
+                    <div className="mt-2 text-xs text-green-700">
+                      <p><strong>Hoe exporteer je WhatsApp chats:</strong></p>
+                      <ol className="list-decimal list-inside space-y-1 mt-1">
+                        <li>Open het WhatsApp gesprek</li>
+                        <li>Druk op de 3 puntjes (⋮) of naam van de persoon</li>
+                        <li>Selecteer &quot;Exporteer chat&quot;</li>
+                        <li>Kies &quot;Zonder media&quot; voor een snellere upload</li>
+                        <li>Verzend naar jezelf en download het .txt bestand</li>
+                      </ol>
+                    </div>
                   </div>
                 </div>
               )}

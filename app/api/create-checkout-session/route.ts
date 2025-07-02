@@ -10,7 +10,8 @@ export async function POST(request: NextRequest) {
   }
 
   if (!stripe) {
-    return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 });
+    console.error('Stripe not configured - missing secret key');
+    return NextResponse.json({ error: 'Payment service not configured' }, { status: 500 });
   }
 
   try {
@@ -21,6 +22,22 @@ export async function POST(request: NextRequest) {
         error: 'Missing required fields' 
       }, { status: 400 });
     }
+
+    // Check if price ID is a placeholder or product ID
+    if (priceId.includes('PleaseFillIn') || priceId.includes('YOUR_') || priceId.includes('REPLACE_WITH_ACTUAL')) {
+      return NextResponse.json({ 
+        error: 'Price ID not configured. Please set up your Stripe price IDs in the environment variables.' 
+      }, { status: 500 });
+    }
+
+    // Check if user provided product ID instead of price ID
+    if (priceId.startsWith('prod_')) {
+      return NextResponse.json({ 
+        error: 'Invalid price ID. You provided a product ID (starts with prod_) but need a price ID (starts with price_). Please create prices for your products in Stripe Dashboard and use the price IDs.' 
+      }, { status: 500 });
+    }
+
+    console.log('Creating checkout session for:', { priceId, userId, planName });
 
     // Create or get customer
     let customer;
@@ -45,6 +62,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Customer creation failed' }, { status: 500 });
     }
 
+    // Determine the correct site URL (for both local and production)
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customer.id,
@@ -56,8 +76,8 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: 'subscription',
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/pricing?canceled=true`,
+      success_url: `${siteUrl}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl}/pricing?canceled=true`,
       metadata: {
         userId: userId,
         plan: planName,
@@ -69,6 +89,8 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    console.log('Checkout session created:', session.id);
 
     // Store checkout session in database
     try {

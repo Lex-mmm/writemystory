@@ -7,12 +7,17 @@ import { useAuth } from '../../context/AuthContext';
 
 export default function PricingPage() {
   const { user } = useAuth();
-  const [isAnnual, setIsAnnual] = useState(false);
   const [isLoading, setIsLoading] = useState<string | null>(null);
 
   const handleSubscribe = async (priceId: string, planName: string) => {
     if (!user) {
       window.location.href = '/login?redirect=/pricing';
+      return;
+    }
+
+    // Check if price ID is configured
+    if (!priceId || priceId.includes('REPLACE_WITH_ACTUAL') || priceId.startsWith('prod_')) {
+      alert('Deze prijs is nog niet geconfigureerd. Je moet price IDs (niet product IDs) instellen in de environment variables.');
       return;
     }
 
@@ -32,16 +37,21 @@ export default function PricingPage() {
         }),
       });
 
-      const { url } = await response.json();
+      const responseData = await response.json();
       
-      if (url) {
-        window.location.href = url;
+      if (!response.ok) {
+        throw new Error(responseData.error || 'Failed to create checkout session');
+      }
+      
+      if (responseData.url) {
+        window.location.href = responseData.url;
       } else {
         throw new Error('No checkout URL received');
       }
     } catch (error) {
       console.error('Error creating checkout session:', error);
-      alert('Er ging iets mis bij het starten van de betaling. Probeer het opnieuw.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Er ging iets mis bij het starten van de betaling: ${errorMessage}. Probeer het opnieuw.`);
     } finally {
       setIsLoading(null);
     }
@@ -52,9 +62,7 @@ export default function PricingPage() {
       name: 'Gratis Kennismaking',
       description: 'Perfect om te ontdekken hoe het werkt',
       monthlyPrice: 0,
-      yearlyPrice: 0,
-      priceIdMonthly: 'free',
-      priceIdYearly: 'free',
+      priceId: 'free',
       features: [
         '1 verhaalproject starten',
         'Tot 10 vragen beantwoorden',
@@ -73,11 +81,9 @@ export default function PricingPage() {
     },
     {
       name: 'Starter',
-      description: 'Voor het vastleggen van verhalen via WhatsApp of browser. Alleen tekst.',
+      description: 'Start je verhaal met tekstgebaseerde input via WhatsApp of browser. Inclusief AI-ondersteuning, PDF-export en e-mail support.',
       monthlyPrice: 19,
-      yearlyPrice: 190,
-      priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER_MONTHLY,
-      priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER_YEARLY,
+      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER_MONTHLY,
       features: [
         'WhatsApp & browser toegang',
         'Tekst-gebaseerde verhalen',
@@ -97,11 +103,9 @@ export default function PricingPage() {
     },
     {
       name: 'Comfort',
-      description: 'Meer ruimte, afbeelding ondersteuning en slimmere AI-bewerking.',
-      monthlyPrice: 39,
-      yearlyPrice: 390,
-      priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_PRICE_COMFORT_MONTHLY,
-      priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_PRICE_COMFORT_YEARLY,
+      description: 'Meer ruimte en mogelijkheden: afbeeldingen, slimmere AI-bewerking, verbeterde lay-outs en ondersteuning voor meerdere projecten.',
+      monthlyPrice: 69,
+      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_COMFORT_MONTHLY,
       features: [
         'Alles van Starter plan',
         'Afbeelding ondersteuning',
@@ -122,10 +126,8 @@ export default function PricingPage() {
     {
       name: 'Deluxe',
       description: 'Onbeperkte input, volledige AI-hoofdstukken, afbeeldingen en menselijke review.',
-      monthlyPrice: 69,
-      yearlyPrice: 690,
-      priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_PRICE_DELUXE_MONTHLY,
-      priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_PRICE_DELUXE_YEARLY,
+      monthlyPrice: 99,
+      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_DELUXE_MONTHLY,
       features: [
         'Alles van Comfort plan',
         'Onbeperkte input',
@@ -177,32 +179,6 @@ export default function PricingPage() {
               Begin gratis en upgrade wanneer je klaar bent om je verhaal compleet te maken. 
               Alle plannen omvatten onze AI-begeleiding en smart vragenservice.
             </p>
-            
-            <div className="flex items-center justify-center mb-8">
-              <span className={`mr-3 ${!isAnnual ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
-                Maandelijks
-              </span>
-              <button
-                onClick={() => setIsAnnual(!isAnnual)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  isAnnual ? 'bg-blue-600' : 'bg-gray-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    isAnnual ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-              <span className={`ml-3 ${isAnnual ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
-                Jaarlijks
-              </span>
-              {isAnnual && (
-                <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                  2 maanden gratis
-                </span>
-              )}
-            </div>
           </div>
 
           <div className="grid lg:grid-cols-4 md:grid-cols-2 gap-6">
@@ -233,14 +209,9 @@ export default function PricingPage() {
                   ) : (
                     <div className="mb-4">
                       <span className="text-3xl font-bold text-gray-900">
-                        €{isAnnual ? Math.round(plan.yearlyPrice / 12) : plan.monthlyPrice}
+                        €{plan.monthlyPrice}
                       </span>
                       <span className="text-gray-600">/maand</span>
-                      {isAnnual && (
-                        <div className="text-sm text-gray-500">
-                          €{plan.yearlyPrice} per jaar
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -274,13 +245,13 @@ export default function PricingPage() {
                 ) : (
                   <button
                     onClick={() => handleSubscribe(
-                      isAnnual ? plan.priceIdYearly! : plan.priceIdMonthly!,
+                      plan.priceId!,
                       plan.name
                     )}
-                    disabled={isLoading === (isAnnual ? plan.priceIdYearly : plan.priceIdMonthly)}
+                    disabled={isLoading === plan.priceId}
                     className={`w-full py-3 px-6 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${getButtonClasses(plan.color)}`}
                   >
-                    {isLoading === (isAnnual ? plan.priceIdYearly : plan.priceIdMonthly)
+                    {isLoading === plan.priceId
                       ? 'Bezig...'
                       : plan.cta
                     }
@@ -295,17 +266,17 @@ export default function PricingPage() {
             <div className="text-center">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">📚 Print Upgrade</h2>
               <p className="text-gray-600 mb-6">
-                Krijg je verhaal als een prachtig gedrukt hardcover boek
+                Ontvang je verhaal als professioneel gedrukt hardcover boek. Inclusief persoonlijke omslag, hoogwaardig papier en gratis verzending binnen Nederland.
               </p>
               
               <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
                 <h3 className="text-lg font-semibold mb-2">Gedrukt Hardcover Boek</h3>
                 <p className="text-gray-600 text-sm mb-4">
-                  Ontvang een fysieke versie van je verhaal in een professioneel gedrukt hardcover boek.
+                  Ontvang je verhaal als professioneel gedrukt hardcover boek. Inclusief persoonlijke omslag, hoogwaardig papier en gratis verzending binnen Nederland.
                 </p>
                 
                 <div className="text-3xl font-bold text-gray-900 mb-4">
-                  €25<span className="text-base font-normal text-gray-600">/boek</span>
+                  €169<span className="text-base font-normal text-gray-600">/boek</span>
                 </div>
                 
                 <ul className="text-sm text-gray-600 mb-6 space-y-2">

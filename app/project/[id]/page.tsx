@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Navigation from '../../../components/Navigation';
 import Footer from '../../../components/Footer';
 import ProtectedRoute from '../../../components/ProtectedRoute';
+import ChapterProgress from '../../../components/ChapterProgress';
 import { useAuth } from '../../../context/AuthContext';
 
 interface Question {
@@ -29,6 +30,26 @@ interface ProjectData {
   writing_style: string;
   status: string;
   created_at: string;
+  is_deceased?: boolean;
+  passed_away_year?: string;
+  metadata?: {
+    whatsappChat?: {
+      messageCount: number;
+      participants: string[];
+      dateRange: {
+        start: string;
+        end: string;
+      };
+    };
+    includeWhatsappChat?: boolean;
+    communicationMethods?: {
+      whatsapp?: boolean;
+      email?: boolean;
+      dashboard?: boolean;
+      voice?: boolean;
+    };
+    [key: string]: unknown;
+  };
 }
 
 export default function ProjectPage() {
@@ -47,6 +68,8 @@ export default function ProjectPage() {
   const [introduction, setIntroduction] = useState<string>('');
   const [showIntroductionForm, setShowIntroductionForm] = useState(true); // Always show the form initially
   const [introductionSaving, setIntroductionSaving] = useState(false);
+  const [whatsappChatFile, setWhatsappChatFile] = useState<File | null>(null);
+  const [whatsappUploading, setWhatsappUploading] = useState(false);
 
   // Load project data
   const loadProject = useCallback(async () => {
@@ -281,13 +304,73 @@ export default function ProjectPage() {
       if (data.success) {
         // Refresh questions list
         await fetchQuestions();
-        alert('Antwoord opgeslagen!');
+        // Success - no popup needed, user can see the answer was saved
       } else {
         alert(`Fout: ${data.error}`);
       }
     } catch (error) {
       console.error('Error saving answer:', error);
       alert('Er ging iets mis bij het opslaan van het antwoord.');
+    }
+  };
+
+  const handleDeleteQuestion = async (questionId: string) => {
+    if (!projectId || !user?.id) return;
+    
+    // Ask for confirmation
+    if (!confirm('Weet je zeker dat je deze vraag wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/questions?questionId=${questionId}&userId=${user.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Refresh questions list
+        await fetchQuestions();
+      } else {
+        alert(`Fout: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      alert('Er ging iets mis bij het verwijderen van de vraag.');
+    }
+  };
+
+  const handleWhatsAppUpload = async () => {
+    if (!projectId || !user?.id || !whatsappChatFile) return;
+    
+    setWhatsappUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('whatsappChatFile', whatsappChatFile);
+      formData.append('projectId', projectId);
+      formData.append('userId', user.id);
+
+      const response = await fetch('/api/whatsapp-upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`WhatsApp chat succesvol geüpload! ${data.messageCount} berichten verwerkt.`);
+        setWhatsappChatFile(null);
+        // Refresh project data
+        await loadProject();
+      } else {
+        alert(`Fout: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error uploading WhatsApp chat:', error);
+      alert('Er ging iets mis bij het uploaden van de WhatsApp chat.');
+    } finally {
+      setWhatsappUploading(false);
     }
   };
 
@@ -304,9 +387,14 @@ export default function ProjectPage() {
           {/* Project Info Section */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">
-                Project: {projectData?.person_name || 'Mijn verhaal'}
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  Project: {projectData?.person_name || 'Mijn verhaal'}
+                </h2>
+                {projectData?.is_deceased && (
+                  <span className="text-yellow-600">🕊️</span>
+                )}
+              </div>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                 projectData?.status === 'active' 
                   ? 'bg-green-100 text-green-800' 
@@ -329,6 +417,11 @@ export default function ProjectPage() {
               <div>
                 <strong>Aangemaakt:</strong> {new Date(projectData?.created_at || '').toLocaleDateString('nl-NL')}
               </div>
+              {projectData?.is_deceased && projectData?.passed_away_year && (
+                <div className="col-span-2">
+                  <strong>Overleden:</strong> {projectData.passed_away_year}
+                </div>
+              )}
             </div>
           </div>
 
@@ -414,10 +507,127 @@ export default function ProjectPage() {
             )}
           </div>
 
+          {/* Chapter Progress Section */}
+          <ChapterProgress 
+            projectId={projectId}
+            userId={user.id}
+            questions={questions}
+            isDeceased={projectData?.is_deceased}
+            onQuestionsGenerated={fetchQuestions}
+          />
+
+          {/* WhatsApp Chat Upload Section - Only show if WhatsApp was selected during setup */}
+          {(projectData?.metadata?.includeWhatsappChat || projectData?.metadata?.communicationMethods?.whatsapp) && (
+            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">💬 WhatsApp Gesprekken</h2>
+              </div>
+
+              {projectData?.metadata?.whatsappChat ? (
+              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                <div className="flex items-start gap-3">
+                  <span className="text-green-600 text-xl">✅</span>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-green-800 mb-2">WhatsApp chat geladen</h4>
+                    <div className="text-sm text-green-700 space-y-1">
+                      <p><strong>Berichten:</strong> {projectData.metadata.whatsappChat.messageCount}</p>
+                      <p><strong>Deelnemers:</strong> {projectData.metadata.whatsappChat.participants?.join(', ')}</p>
+                      {projectData.metadata.whatsappChat.dateRange?.start && (
+                        <p><strong>Periode:</strong> {new Date(projectData.metadata.whatsappChat.dateRange.start).toLocaleDateString('nl-NL')} - {new Date(projectData.metadata.whatsappChat.dateRange.end).toLocaleDateString('nl-NL')}</p>
+                      )}
+                    </div>
+                    <p className="text-green-600 text-sm mt-2 italic">
+                      Deze gesprekken kunnen worden gebruikt om extra context te geven bij het genereren van slimme vragen en verhalen.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p className="text-gray-600 mb-4">
+                  Upload WhatsApp gesprekken om extra herinneringen en verhalen toe te voegen aan je project. 
+                  {projectData?.is_deceased && ' Dit is vooral waardevol voor memorial verhalen.'}
+                </p>
+                
+                <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                  <h4 className="font-medium text-blue-800 mb-2">💡 Waarom WhatsApp gesprekken toevoegen?</h4>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li>• Vastleggen van spontane herinneringen en anekdotes</li>
+                    <li>• Extra context voor AI om betere vragen te genereren</li>
+                    <li>• Bewaren van belangrijke gesprekken en uitwisselingen</li>
+                    {projectData?.is_deceased && (
+                      <li>• Waardevol voor het vastleggen van laatste gesprekken en herinneringen</li>
+                    )}
+                  </ul>
+                </div>
+
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <input
+                    type="file"
+                    accept=".txt"
+                    onChange={(e) => setWhatsappChatFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                    id="whatsappFileUpload"
+                  />
+                  <label htmlFor="whatsappFileUpload" className="cursor-pointer">
+                    {whatsappChatFile ? (
+                      <div className="text-gray-700">
+                        <p className="font-medium">📁 {whatsappChatFile.name}</p>
+                        <p className="text-sm">Klik om een ander bestand te selecteren</p>
+                      </div>
+                    ) : (
+                      <div className="text-gray-500">
+                        <p className="font-medium">📱 Klik om WhatsApp chat te uploaden</p>
+                        <p className="text-sm">Alleen .txt bestanden</p>
+                      </div>
+                    )}
+                  </label>
+                </div>
+
+                {whatsappChatFile && (
+                  <div className="mt-4 flex gap-3">
+                    <button
+                      onClick={handleWhatsAppUpload}
+                      disabled={whatsappUploading}
+                      className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                      {whatsappUploading ? 'Uploaden...' : 'Upload WhatsApp Chat'}
+                    </button>
+                    <button
+                      onClick={() => setWhatsappChatFile(null)}
+                      className="text-gray-600 px-6 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                    >
+                      Annuleren
+                    </button>
+                  </div>
+                )}
+
+                <div className="mt-4 text-xs text-gray-600">
+                  <p><strong>Hoe exporteer je WhatsApp chats:</strong></p>
+                  <ol className="list-decimal list-inside space-y-1 mt-1">
+                    <li>Open het WhatsApp gesprek</li>
+                    <li>Druk op de 3 puntjes (⋮) of naam van de persoon</li>
+                    <li>Selecteer &quot;Exporteer chat&quot;</li>
+                    <li>Kies &quot;Zonder media&quot; voor een snellere upload</li>
+                    <li>Verzend naar jezelf en download het .txt bestand</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+          </div>
+          )}
+
           {/* Questions Section */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">❓ Vragen & Antwoorden</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-semibold text-gray-800">❓ Vragen & Antwoorden</h2>
+                {projectData?.is_deceased && (
+                  <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1">
+                    🕊️ Memorial verhaal
+                  </span>
+                )}
+              </div>
               <div className="flex gap-2">
                 <button
                   onClick={handleGenerateGenericQuestions}
@@ -462,7 +672,10 @@ export default function ProjectPage() {
                   <div className="flex items-start gap-3">
                     <span className="bg-gray-600 text-white px-2 py-1 rounded text-xs font-medium">📝 BASIS</span>
                     <div>
-                      <strong>Basis vragen:</strong> Standaard vragen die iedereen helpen om de belangrijkste levensmomenten vast te leggen - van jeugd tot volwassenheid.
+                      <strong>Basis vragen:</strong> {projectData?.is_deceased 
+                        ? 'Vragen die helpen om een prachtig eerbetoon aan het leven en de herinneringen vast te leggen.'
+                        : 'Standaard vragen die iedereen helpen om de belangrijkste levensmomenten vast te leggen - van jeugd tot volwassenheid.'
+                      }
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -471,9 +684,20 @@ export default function ProjectPage() {
                       <strong>Slimme vragen:</strong> Gepersonaliseerde vragen gebaseerd op je introductie en eerdere antwoorden. Hoe meer je deelt, hoe persoonlijker de vragen worden.
                     </div>
                   </div>
+                  {projectData?.is_deceased && (
+                    <div className="flex items-start gap-3">
+                      <span className="bg-yellow-600 text-white px-2 py-1 rounded text-xs font-medium">🕊️ MEMORIAL</span>
+                      <div>
+                        <strong>Memorial vragen:</strong> Speciale vragen gericht op het vastleggen van herinneringen, karaktereigenschappen en het nalatenschap van de overledene.
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <p className="text-blue-700 text-sm mt-3 italic">
-                  💡 Tip: Begin met basis vragen of schrijf eerst een introductie voor de beste ervaring met slimme vragen.
+                  💡 Tip: {projectData?.is_deceased 
+                    ? 'Begin met basis vragen om een volledig beeld van het leven te krijgen, gevolgd door memorial vragen voor persoonlijke herinneringen.'
+                    : 'Begin met basis vragen of schrijf eerst een introductie voor de beste ervaring met slimme vragen.'
+                  }
                 </p>
               </div>
             )}
@@ -483,12 +707,34 @@ export default function ProjectPage() {
                 questions.map((question) => (
                   <div key={question.id} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-blue-600 font-medium">{question.category}</span>
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        question.answer ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {question.answer ? 'Beantwoord' : 'Open'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-medium ${
+                          question.category === 'memorial' 
+                            ? 'text-yellow-600' 
+                            : 'text-blue-600'
+                        }`}>
+                          {question.category === 'memorial' ? '🕊️ ' : ''}{question.category}
+                        </span>
+                        {question.category === 'memorial' && (
+                          <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">
+                            Memorial
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          question.answer ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {question.answer ? 'Beantwoord' : 'Open'}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteQuestion(question.id)}
+                          className="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                          title="Vraag verwijderen"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
                     <p className="text-gray-800 mb-3">{question.question}</p>
                     {question.answer ? (
@@ -508,6 +754,14 @@ export default function ProjectPage() {
                         />
                       </div>
                     )}
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={() => handleDeleteQuestion(question.id)}
+                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        Verwijderen
+                      </button>
+                    </div>
                   </div>
                 ))
               ) : (

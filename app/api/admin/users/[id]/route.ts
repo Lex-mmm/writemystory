@@ -92,6 +92,9 @@ export async function GET(
       }
     };
 
+    console.log('API: Returning userDetails with ID:', userDetails.id);
+    console.log('API: Full userDetails object:', JSON.stringify(userDetails, null, 2));
+
     return createAdminSuccessResponse(userDetails);
 
   } catch (error) {

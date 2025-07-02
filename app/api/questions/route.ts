@@ -140,8 +140,21 @@ export async function POST(request: NextRequest) {
     }
 
     if (type === 'generate') {
+      // Get project info to check if person is deceased
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .select('is_deceased, passed_away_year, person_name, subject_type')
+        .eq('id', storyId)
+        .eq('user_id', userId)
+        .single();
+
+      if (projectError) {
+        console.error('Error fetching project:', projectError);
+        return NextResponse.json({ error: 'Failed to fetch project information' }, { status: 500 });
+      }
+
       // Generate new questions for the story
-      const newQuestions = generateQuestionsForStory(storyId);
+      const newQuestions = generateQuestionsForStory(storyId, project?.is_deceased || false);
       
       // Insert questions into Supabase
       const { data: insertedQuestions, error: insertError } = await supabase
@@ -236,159 +249,265 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function generateQuestionsForStory(storyId: string) {
-  // Generate more comprehensive and diverse questions across life periods
+export async function DELETE(request: NextRequest) {
+  // Check if Supabase is properly configured
+  if (!isSupabaseConfigured()) {
+    console.error('Supabase not configured properly');
+    return NextResponse.json({ error: 'Database service unavailable' }, { status: 503 });
+  }
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const questionId = searchParams.get('questionId');
+    const userId = searchParams.get('userId');
+
+    if (!questionId || !userId) {
+      return NextResponse.json({ error: 'Question ID and User ID are required' }, { status: 400 });
+    }
+
+    // Set user context for RLS
+    await setUserContext(userId);
+
+    // First, delete any answers associated with this question
+    const { error: deleteAnswersError } = await supabase
+      .from('answers')
+      .delete()
+      .eq('question_id', questionId);
+
+    if (deleteAnswersError) {
+      console.error('Error deleting answers:', deleteAnswersError);
+      return NextResponse.json({ 
+        error: 'Failed to delete question answers', 
+        details: deleteAnswersError.message 
+      }, { status: 500 });
+    }
+
+    // Then delete the question itself
+    const { error: deleteQuestionError } = await supabase
+      .from('questions')
+      .delete()
+      .eq('id', questionId);
+
+    if (deleteQuestionError) {
+      console.error('Error deleting question:', deleteQuestionError);
+      return NextResponse.json({ 
+        error: 'Failed to delete question', 
+        details: deleteQuestionError.message 
+      }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Question deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error in DELETE /api/questions:', error);
+    return NextResponse.json({ 
+      error: 'Failed to delete question', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
+  }
+}
+
+function generateQuestionsForStory(storyId: string, isDeceased: boolean = false) {
+  // Generate factual, biographical questions for comprehensive life documentation
+  // Adjust tense and focus based on whether the person is deceased
+  
   const baseQuestions = [
-    // Early life & family
+    // Early life & family - FACTUAL
     {
       story_id: storyId,
       category: 'early_life',
-      question: "Waar ben je geboren en opgegroeid? Beschrijf je geboorteplaats.",
+      question: `Waar en wanneer ${isDeceased ? 'werd' : 'ben'} ${isDeceased ? 'hij/zij' : 'je'} geboren? Beschrijf ${isDeceased ? 'zijn/haar' : 'je'} geboorteplaats en -datum.`,
       type: 'open',
       priority: 1
     },
     {
       story_id: storyId,
       category: 'family',
-      question: "Wat is een van je vroegste herinneringen aan je ouders of verzorgers?",
+      question: `Wat ${isDeceased ? 'waren' : 'zijn'} de namen van ${isDeceased ? 'zijn/haar' : 'je'} ouders en wat was hun beroep?`,
       type: 'open',
       priority: 2
     },
     {
       story_id: storyId,
-      category: 'childhood',
-      question: "Welk speelgoed of welke activiteit bracht je als kind de meeste vreugde?",
+      category: 'family',
+      question: `${isDeceased ? 'Had hij/zij' : 'Heb je'} broers of zussen? Wat ${isDeceased ? 'waren' : 'zijn'} hun namen en geboortejaren?`,
       type: 'open',
       priority: 3
     },
     {
       story_id: storyId,
-      category: 'family',
-      question: "Heb je broers of zussen? Wat is je mooiste herinnering met hen?",
+      category: 'childhood',
+      question: `In welke straat/wijk ${isDeceased ? 'woonde hij/zij' : 'woonde je'} als kind? Beschrijf het huis en de buurt.`,
       type: 'open',
       priority: 4
     },
     
-    // School years
+    // School & education - FACTUAL
     {
       story_id: storyId,
-      category: 'school',
-      question: "Wat herinner je je van je eerste schooldag? Hoe voelde dat?",
+      category: 'education',
+      question: `Welke scholen ${isDeceased ? 'heeft hij/zij bezocht' : 'heb je bezocht'}? (naam, plaats, jaartallen)`,
       type: 'open',
       priority: 5
     },
     {
       story_id: storyId,
       category: 'education',
-      question: "Welke leraar of docent heeft de meeste indruk op je gemaakt en waarom?",
+      question: `Welke opleiding(en) ${isDeceased ? 'heeft hij/zij gevolgd' : 'heb je gevolgd'} na de middelbare school?`,
       type: 'open',
       priority: 6
     },
     {
       story_id: storyId,
-      category: 'friends',
-      question: "Wie was je beste vriend(in) tijdens je schooltijd? Wat deden jullie samen?",
+      category: 'education',
+      question: `${isDeceased ? 'Heeft hij/zij' : 'Heb je'} diploma's, certificaten of speciale kwalificaties behaald?`,
       type: 'open',
       priority: 7
     },
     {
       story_id: storyId,
-      category: 'school',
-      question: "Welk schoolvak vond je het leukst en welk vond je het moeilijkst?",
+      category: 'education',
+      question: `In welke vakken of onderwerpen ${isDeceased ? 'excelleerde hij/zij' : 'excelleerde je'} op school?`,
       type: 'open',
       priority: 8
     },
     
-    // Young adult & career
+    // Career & work - FACTUAL  
     {
       story_id: storyId,
       category: 'career',
-      question: "Wat was je eerste baantje? Hoe was die ervaring?",
+      question: `Wat was ${isDeceased ? 'zijn/haar' : 'je'} eerste baan en bij welk bedrijf? (inclusief jaartallen)`,
       type: 'open',
       priority: 9
     },
     {
       story_id: storyId,
-      category: 'independence',
-      question: "Wanneer ben je voor het eerst op jezelf gaan wonen? Hoe voelde dat?",
+      category: 'career',
+      question: `Welke carrièrestappen ${isDeceased ? 'heeft hij/zij gemaakt' : 'heb je gemaakt'}? Beschrijf ${isDeceased ? 'zijn/haar' : 'je'} werkgeschiedenis.`,
       type: 'open',
       priority: 10
     },
     {
       story_id: storyId,
-      category: 'relationships',
-      question: "Hoe heb je je partner ontmoet? (indien van toepassing)",
+      category: 'career',
+      question: `In welke sector/industrie ${isDeceased ? 'heeft hij/zij' : 'heb je'} het grootste deel van ${isDeceased ? 'zijn/haar' : 'je'} carrière gewerkt?`,
       type: 'open',
       priority: 11
     },
     {
       story_id: storyId,
-      category: 'milestones',
-      question: "Wat was een belangrijk keerpunt in je leven?",
+      category: 'career',
+      question: `Welke functietitels ${isDeceased ? 'heeft hij/zij gehad' : 'heb je gehad'} en wat waren ${isDeceased ? 'zijn/haar' : 'je'} hoofdtaken?`,
       type: 'open',
       priority: 12
     },
     
-    // Personal interests & values
+    // Personal life - FACTUAL
     {
       story_id: storyId,
-      category: 'hobbies',
-      question: "Wat zijn je hobby's of interesses? Hoe ben je daaraan begonnen?",
+      category: 'relationships',
+      question: `${isDeceased ? 'Was hij/zij getrouwd (geweest)' : 'Ben je getrouwd (geweest)'}? Naam van partner(s) en trouwdatum(s)?`,
       type: 'open',
       priority: 13
     },
     {
       story_id: storyId,
-      category: 'achievements',
-      question: "Waar ben je het meest trots op in je leven?",
+      category: 'family',
+      question: `${isDeceased ? 'Had hij/zij' : 'Heb je'} kinderen? Namen, geboortejaren en hun belangrijkste prestaties?`,
       type: 'open',
       priority: 14
     },
     {
       story_id: storyId,
-      category: 'challenges',
-      question: "Wat was een moeilijke periode in je leven en hoe heb je dat overwonnen?",
+      category: 'general',
+      question: `In welke plaatsen ${isDeceased ? 'heeft hij/zij gewoond' : 'heb je gewoond'} gedurende ${isDeceased ? 'zijn/haar' : 'je'} leven? (inclusief jaartallen)`,
       type: 'open',
       priority: 15
     },
     {
       story_id: storyId,
-      category: 'wisdom',
-      question: "Welk advies zou je aan je jongere zelf geven?",
+      category: 'general',
+      question: `Welke belangrijke data en mijlpalen ${isDeceased ? 'zou je willen documenteren uit zijn/haar leven' : 'zou je willen documenteren'}?`,
       type: 'open',
       priority: 16
     },
     
-    // Additional life aspects
+    // Achievements & activities - FACTUAL
     {
       story_id: storyId,
-      category: 'travel',
-      question: "Wat is de mooiste reis die je ooit hebt gemaakt?",
+      category: 'achievements',
+      question: `Welke prijzen, onderscheidingen of erkenningen ${isDeceased ? 'heeft hij/zij ontvangen' : 'heb je ontvangen'}?`,
       type: 'open',
       priority: 17
     },
     {
       story_id: storyId,
-      category: 'traditions',
-      question: "Welke tradities of gewoonten zijn belangrijk voor je (familie)?",
+      category: 'hobbies',
+      question: `In welke verenigingen, clubs of organisaties ${isDeceased ? 'was hij/zij actief' : 'ben je actief (geweest)'}?`,
       type: 'open',
       priority: 18
     },
     {
       story_id: storyId,
-      category: 'legacy',
-      question: "Hoe wil je herinnerd worden? Wat wil je doorgeven aan volgende generaties?",
+      category: 'travel',
+      question: `Naar welke landen of bijzondere plaatsen ${isDeceased ? 'heeft hij/zij gereisd' : 'heb je gereisd'}? (jaartallen)`,
       type: 'open',
       priority: 19
     },
     {
       story_id: storyId,
-      category: 'gratitude',
-      question: "Voor wat ben je het meest dankbaar in je leven?",
+      category: 'general',
+      question: `Welke belangrijke historische gebeurtenissen ${isDeceased ? 'heeft hij/zij meegemaakt' : 'heb je meegemaakt'}?`,
       type: 'open',
       priority: 20
     }
   ];
+
+  // Add memorial-specific questions if the person is deceased
+  if (isDeceased) {
+    const memorialQuestions = [
+      {
+        story_id: storyId,
+        category: 'memorial',
+        question: "Wat waren zijn/haar meest bijzondere karaktereigenschappen die mensen zich herinneren?",
+        type: 'open',
+        priority: 21
+      },
+      {
+        story_id: storyId,
+        category: 'memorial',
+        question: "Welke wijze woorden, uitspraken of levenslessen deelde hij/zij vaak?",
+        type: 'open',
+        priority: 22
+      },
+      {
+        story_id: storyId,
+        category: 'memorial',
+        question: "Wat was zijn/haar grootste passie of wat maakte hem/haar het gelukkigst?",
+        type: 'open',
+        priority: 23
+      },
+      {
+        story_id: storyId,
+        category: 'memorial',
+        question: "Welke betekenisvolle herinneringen of tradities blijven voortleven?",
+        type: 'open',
+        priority: 24
+      },
+      {
+        story_id: storyId,
+        category: 'memorial',
+        question: "Hoe zou hij/zij graag herinnerd willen worden?",
+        type: 'open',
+        priority: 25
+      }
+    ];
+    
+    baseQuestions.push(...memorialQuestions);
+  }
 
   return baseQuestions;
 }

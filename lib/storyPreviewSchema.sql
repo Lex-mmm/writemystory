@@ -48,5 +48,5 @@ CREATE POLICY "Users can manage their own introductions" ON introductions
 
 -- Add some additional columns to projects table if they don't exist
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_deceased BOOLEAN DEFAULT FALSE;
-ALTER TABLE projects ADD COLUMN IF NOT EXISTS year_of_passing INTEGER;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS passed_away_year TEXT;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS progress_detail JSONB;

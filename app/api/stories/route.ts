@@ -1,5 +1,124 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabase';
+import { getUserSubscription, checkProjectLimit } from '../../../lib/subscriptionCheck';
+
+interface CreateProjectRequest {
+  userId: string;
+  email?: string;
+  subjectType?: string;
+  personName?: string;
+  birthYear?: string;
+  relationship?: string;
+  isDeceased?: boolean;
+  passedAwayYear?: string;
+  collaborators?: string[];
+  collaboratorEmails?: string[];
+  periodType?: string;
+  startYear?: string;
+  endYear?: string;
+  theme?: string;
+  writingStyle?: string;
+  communicationMethods?: string[];
+  deliveryFormat?: string;
+  includeWhatsappChat?: boolean;
+}
+
+// WhatsApp chat parsing function
+function parseWhatsAppChat(chatContent: string) {
+  try {
+    const lines = chatContent.split('\n').filter(line => line.trim());
+    const messages: Array<{
+      timestamp: string;
+      sender: string;
+      message: string;
+      date: Date | null;
+    }> = [];
+    
+    // Common WhatsApp export patterns
+    const patterns = [
+      // Format: [DD/MM/YYYY, HH:MM:SS] Name: Message
+      /^\[(\d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d{2}:\d{2})\] ([^:]+): (.+)$/,
+      // Format: DD/MM/YYYY, HH:MM - Name: Message  
+      /^(\d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d{2}) - ([^:]+): (.+)$/,
+      // Format: DD-MM-YYYY HH:MM - Name: Message
+      /^(\d{1,2}-\d{1,2}-\d{4} \d{1,2}:\d{2}) - ([^:]+): (.+)$/,
+      // Format: MM/DD/YY, HH:MM AM/PM - Name: Message
+      /^(\d{1,2}\/\d{1,2}\/\d{2}, \d{1,2}:\d{2} [AP]M) - ([^:]+): (.+)$/
+    ];
+    
+    for (const line of lines) {
+      let matched = false;
+      
+      for (const pattern of patterns) {
+        const match = line.match(pattern);
+        if (match) {
+          const [, timestamp, sender, message] = match;
+          
+          // Try to parse the date
+          let parsedDate: Date | null = null;
+          try {
+            // Handle different date formats
+            if (timestamp.includes('/') && timestamp.includes(',')) {
+              // Format like "25/12/2023, 14:30:45" or "25/12/2023, 2:30 PM"
+              parsedDate = new Date(timestamp.replace(/(\d{1,2})\/(\d{1,2})\/(\d{4})/, '$3-$2-$1'));
+            } else if (timestamp.includes('-')) {
+              // Format like "25-12-2023 14:30"
+              parsedDate = new Date(timestamp.replace(/(\d{1,2})-(\d{1,2})-(\d{4})/, '$3-$2-$1'));
+            }
+          } catch {
+            // If date parsing fails, continue without date
+          }
+          
+          messages.push({
+            timestamp,
+            sender: sender.trim(),
+            message: message.trim(),
+            date: parsedDate
+          });
+          
+          matched = true;
+          break;
+        }
+      }
+      
+      // If no pattern matched, it might be a continuation of the previous message
+      if (!matched && messages.length > 0 && line.trim()) {
+        messages[messages.length - 1].message += '\n' + line.trim();
+      }
+    }
+    
+    // Extract participants (unique senders)
+    const participants = [...new Set(messages.map(m => m.sender))];
+    
+    // Extract some basic statistics
+    const messageCount = messages.length;
+    const dateRange = {
+      start: messages.length > 0 ? messages[0].date : null,
+      end: messages.length > 0 ? messages[messages.length - 1].date : null
+    };
+    
+    return {
+      messages,
+      participants,
+      messageCount,
+      dateRange,
+      processingInfo: {
+        totalLines: lines.length,
+        successfullyParsed: messages.length,
+        parsingDate: new Date().toISOString()
+      }
+    };
+  } catch (error) {
+    console.error('Error parsing WhatsApp chat:', error);
+    return {
+      messages: [],
+      participants: [],
+      messageCount: 0,
+      dateRange: { start: null, end: null },
+      error: error instanceof Error ? error.message : 'Unknown parsing error'
+    };
+  }
+}
 
 // Helper function to set user context for RLS (same as in questions route)
 async function setUserContext(userId: string) {
@@ -167,7 +286,39 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    const contentType = request.headers.get('content-type');
+    let body: Partial<CreateProjectRequest> = {};
+    let whatsappChatFile: File | null = null;
+
+    // Handle both JSON and FormData requests
+    if (contentType?.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      
+      // Extract the file
+      whatsappChatFile = formData.get('whatsappChatFile') as File || null;
+      
+      // Extract other data from FormData
+      const bodyData: Record<string, unknown> = {};
+      for (const [key, value] of formData.entries()) {
+        if (key !== 'whatsappChatFile') {
+          if (key === 'collaborators' || key === 'collaboratorEmails' || key === 'communicationMethods') {
+            try {
+              bodyData[key] = JSON.parse(value as string);
+            } catch {
+              bodyData[key] = value;
+            }
+          } else if (key === 'isDeceased' || key === 'includeWhatsappChat') {
+            bodyData[key] = value === 'true';
+          } else {
+            bodyData[key] = value;
+          }
+        }
+      }
+      body = bodyData as Partial<CreateProjectRequest>;
+    } else {
+      body = await request.json();
+    }
+
     const {
       userId,
       email,
@@ -175,6 +326,8 @@ export async function POST(request: NextRequest) {
       personName,
       birthYear,
       relationship,
+      isDeceased,
+      passedAwayYear,
       collaborators,
       collaboratorEmails,
       periodType,
@@ -183,17 +336,45 @@ export async function POST(request: NextRequest) {
       theme,
       writingStyle,
       communicationMethods,
-      deliveryFormat
+      deliveryFormat,
+      includeWhatsappChat
     } = body;
 
-    if (!userId) {
+    if (!userId || typeof userId !== 'string') {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
     console.log('Creating project for user:', userId);
 
+    // Check user subscription and project limits
+    const userSubscription = await getUserSubscription(userId);
+    const projectLimit = await checkProjectLimit(userId, userSubscription.plan);
+
+    if (!projectLimit.canCreate) {
+      return NextResponse.json({
+        error: `Project limit reached (${projectLimit.currentCount}/${projectLimit.limit}). Upgrade your plan to create more projects.`,
+        upgradeRequired: true,
+        currentPlan: userSubscription.plan,
+        limit: projectLimit.limit,
+        currentCount: projectLimit.currentCount
+      }, { status: 403 });
+    }
+
     // Set user context for RLS
     await setUserContext(userId);
+
+    // Process WhatsApp chat file if provided
+    let whatsappChatContent = null;
+    if (includeWhatsappChat && whatsappChatFile) {
+      try {
+        const fileContent = await whatsappChatFile.text();
+        whatsappChatContent = parseWhatsAppChat(fileContent);
+        console.log(`Processed WhatsApp chat with ${whatsappChatContent.messages.length} messages`);
+      } catch (error) {
+        console.error('Error processing WhatsApp file:', error);
+        // Continue without the file - don't fail the project creation
+      }
+    }
 
     // Insert project into Supabase
     const { data: project, error: insertError } = await supabase
@@ -206,6 +387,8 @@ export async function POST(request: NextRequest) {
         writing_style: writingStyle,
         status: 'active',
         progress: 15,
+        is_deceased: isDeceased || false,
+        passed_away_year: passedAwayYear || null,
         // Store additional data as JSON
         metadata: {
           birthYear,
@@ -217,7 +400,9 @@ export async function POST(request: NextRequest) {
           theme,
           communicationMethods,
           deliveryFormat,
-          email
+          email,
+          includeWhatsappChat,
+          whatsappChat: whatsappChatContent
         }
       })
       .select()

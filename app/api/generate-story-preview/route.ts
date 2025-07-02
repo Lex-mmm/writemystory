@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     const personName = project.person_name || "de persoon";
     const subjectType = project.subject_type === "self" ? "autobiography" : "biography";
     const isDeceased = project.is_deceased || false;
-    const yearOfPassing = project.year_of_passing;
+    const yearOfPassing = project.passed_away_year;
     const writingStyle = project.writing_style || "neutrale";
 
     // Categorize questions by type

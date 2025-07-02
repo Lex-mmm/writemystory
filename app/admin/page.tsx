@@ -2,16 +2,39 @@
 
 import { useState } from 'react';
 import { AdminOverview, AdminUser, AdminProject, AdminQuestion, AdminAnswer } from '../../lib/supabaseAdmin';
+import SubscriptionManager from '../../components/SubscriptionManager';
 
 interface UserDetailsData {
-  user: AdminUser;
-  projects: AdminProject[];
-  questions: AdminQuestion[];
-  answers: AdminAnswer[];
-  stats: {
+  id: string;
+  email: string;
+  created_at: string;
+  email_confirmed_at?: string;
+  last_sign_in_at?: string;
+  app_metadata?: {
+    provider?: string;
+    providers?: string[];
+    [key: string]: unknown;
+  };
+  user_metadata?: {
+    name?: string;
+    avatar_url?: string;
+    email?: string;
+    [key: string]: unknown;
+  };
+  projects?: AdminProject[];
+  questions?: AdminQuestion[];
+  answers?: AdminAnswer[];
+  stats?: {
     totalProjects: number;
+    totalQuestions: number;
     totalAnswers: number;
     averageProgress: number;
+  };
+  subscription?: {
+    plan: string;
+    status: string;
+    stripeCustomerId?: string;
+    subscriptionId?: string;
   };
 }
 
@@ -24,6 +47,7 @@ export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const headers = {
     'Content-Type': 'application/json',
@@ -93,17 +117,83 @@ export default function AdminDashboard() {
   const fetchUserDetails = async (userId: string) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      
+      // Fetch user details and subscription data in parallel
+      const [userResponse, subscriptionResponse] = await Promise.all([
+        fetch(`/api/admin/users/${userId}`, { headers }),
+        fetch(`/api/admin/users/${userId}/subscription`, { headers })
+      ]);
+      
+      if (userResponse.ok) {
+        const responseData = await userResponse.json();
+        
+        console.log('Raw response from API:', responseData);
+        
+        // Extract the actual user data from the response wrapper
+        const userData = responseData.data || responseData;
+        
+        console.log('Extracted userData:', userData);
+        
+        // Add subscription data if available
+        if (subscriptionResponse.ok) {
+          const subscriptionData = await subscriptionResponse.json();
+          console.log('Subscription data:', subscriptionData);
+          console.log('Subscription response structure:', Object.keys(subscriptionData));
+          
+          // Extract data from the wrapped response
+          const subscriptionInfo = subscriptionData.data || subscriptionData;
+          console.log('Extracted subscription info:', subscriptionInfo);
+          
+          userData.subscription = {
+            plan: subscriptionInfo.currentPlan || 'free',
+            status: subscriptionInfo.subscription?.status || 'inactive',
+            stripeCustomerId: subscriptionInfo.subscription?.customer_id,
+            subscriptionId: subscriptionInfo.subscription?.id
+          };
+          
+          console.log('Final subscription object:', userData.subscription);
+        } else {
+          console.log('Subscription response not OK:', subscriptionResponse.status, subscriptionResponse.statusText);
+          // Default to free plan if subscription fetch fails
+          userData.subscription = {
+            plan: 'free',
+            status: 'inactive'
+          };
+        }
+        
+        console.log('Final userData with subscription:', userData);
+        setUserDetails(userData);
+        setSelectedUser(userId);
+      }
+    } catch (err) {
+      console.error('Error fetching user details:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const syncProfiles = async () => {
+    try {
+      setIsLoading(true);
+      setSyncMessage(null);
+      
+      const response = await fetch('/api/admin/sync-profiles', {
+        method: 'POST',
         headers
       });
       
       if (response.ok) {
         const data = await response.json();
-        setUserDetails(data);
-        setSelectedUser(userId);
+        setSyncMessage(`✅ ${data.message}`);
+        // Refresh the users list
+        fetchUsers();
+      } else {
+        const errorData = await response.json();
+        setSyncMessage(`❌ Error: ${errorData.error}`);
       }
     } catch (err) {
-      console.error('Error fetching user details:', err);
+      console.error('Error syncing profiles:', err);
+      setSyncMessage('❌ Failed to sync profiles');
     } finally {
       setIsLoading(false);
     }
@@ -146,17 +236,37 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-            <button
-              onClick={() => setIsAuthenticated(false)}
-              className="text-red-600 hover:text-red-800"
-            >
-              Logout
-            </button>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={syncProfiles}
+                disabled={isLoading}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {isLoading ? 'Syncing...' : 'Sync Profiles'}
+              </button>
+              <button
+                onClick={() => setIsAuthenticated(false)}
+                className="text-red-600 hover:text-red-800"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {/* Sync Message */}
+        {syncMessage && (
+          <div className={`mb-6 p-4 rounded-lg ${
+            syncMessage.startsWith('✅') 
+              ? 'bg-green-100 border border-green-400 text-green-700'
+              : 'bg-red-100 border border-red-400 text-red-700'
+          }`}>
+            {syncMessage}
+          </div>
+        )}
+
         {/* Overview Stats */}
         {overview && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -277,26 +387,59 @@ export default function AdminDashboard() {
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-sm font-medium text-gray-700">Email</h3>
-                    <p className="text-sm text-gray-900">{userDetails.user.email}</p>
+                    <p className="text-sm text-gray-900">{userDetails.email}</p>
                   </div>
+
+                  {/* Subscription Info */}
+                  {userDetails.subscription && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-700">Current Subscription</h3>
+                      <div className="mt-1 flex items-center space-x-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          userDetails.subscription.plan === 'free' 
+                            ? 'bg-gray-100 text-gray-800'
+                            : userDetails.subscription.plan === 'admin_comp'
+                            ? 'bg-purple-100 text-purple-800'
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {userDetails.subscription.plan === 'admin_comp' 
+                            ? '🎁 Admin Comp' 
+                            : userDetails.subscription.plan.charAt(0).toUpperCase() + userDetails.subscription.plan.slice(1)
+                          }
+                        </span>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          userDetails.subscription.status === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {userDetails.subscription.status}
+                        </span>
+                      </div>
+                      {userDetails.subscription.stripeCustomerId && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Stripe Customer: {userDetails.subscription.stripeCustomerId}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <h4 className="text-sm font-medium text-gray-700">Projects</h4>
-                      <p className="text-2xl font-bold text-blue-600">{userDetails.stats.totalProjects}</p>
+                      <p className="text-2xl font-bold text-blue-600">{userDetails.stats?.totalProjects || 0}</p>
                     </div>
                     <div>
                       <h4 className="text-sm font-medium text-gray-700">Answers</h4>
-                      <p className="text-2xl font-bold text-green-600">{userDetails.stats.totalAnswers}</p>
+                      <p className="text-2xl font-bold text-green-600">{userDetails.stats?.totalAnswers || 0}</p>
                     </div>
                     <div>
                       <h4 className="text-sm font-medium text-gray-700">Avg Progress</h4>
-                      <p className="text-2xl font-bold text-purple-600">{userDetails.stats.averageProgress}%</p>
+                      <p className="text-2xl font-bold text-purple-600">{userDetails.stats?.averageProgress || 0}%</p>
                     </div>
                   </div>
 
                   {/* Project display with proper typing */}
-                  {userDetails && userDetails.projects.length > 0 && (
+                  {userDetails && userDetails.projects && userDetails.projects.length > 0 && (
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 mb-2">Projects</h4>
                       <div className="space-y-2 max-h-40 overflow-y-auto">
@@ -304,7 +447,7 @@ export default function AdminDashboard() {
                           <div key={project.id} className="text-sm border rounded p-2">
                             <div className="flex justify-between">
                               <span className="font-medium">{project.subject_type === 'self' ? 'Personal Story' : project.person_name}</span>
-                              <span className="text-gray-500">{project.progress}%</span>
+                              <span className="text-gray-500">{project.progress || 0}%</span>
                             </div>
                             <div className="text-gray-600">
                               Status: {project.status} • {project.writing_style}
@@ -316,16 +459,44 @@ export default function AdminDashboard() {
                   )}
 
                   {/* Questions and Answers display */}
-                  {userDetails && userDetails.questions.length > 0 && (
+                  {userDetails && userDetails.questions && userDetails.questions.length > 0 && (
                     <div className="mt-4">
                       <h4 className="text-sm font-medium text-gray-700 mb-2">Recent Questions</h4>
                       <div className="space-y-1 max-h-32 overflow-y-auto">
                         {userDetails.questions.slice(0, 3).map((question: AdminQuestion) => (
                           <div key={question.id} className="text-xs text-gray-600 border-b pb-1">
-                            {question.category}: {question.question.substring(0, 60)}...
+                            {question.category}: {question.question?.substring(0, 60)}...
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Subscription Management */}
+                  {userDetails && (
+                    <div className="mt-6">
+                      <div className="mb-2 text-sm text-gray-500">
+                        Debug: User ID = {userDetails.id || 'UNDEFINED!'}
+                        <br />
+                        Debug: User object keys = {Object.keys(userDetails).join(', ')}
+                      </div>
+                      {userDetails.id ? (
+                        <SubscriptionManager
+                          userId={userDetails.id}
+                          currentPlan={userDetails.subscription?.plan || 'free'}
+                          adminToken={adminToken}
+                          onUpdate={() => {
+                            // Add a small delay to ensure database updates are complete
+                            setTimeout(() => {
+                              fetchUserDetails(userDetails.id);
+                            }, 1000);
+                          }}
+                        />
+                      ) : (
+                        <div className="text-red-600">
+                          Error: User ID is missing from user data!
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
