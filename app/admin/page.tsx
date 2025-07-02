@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { AdminOverview, AdminUser, AdminProject, AdminQuestion, AdminAnswer } from '../../lib/supabaseAdmin';
 import SubscriptionManager from '../../components/SubscriptionManager';
+import ContentModeration from '../../components/ContentModeration';
 
 interface UserDetailsData {
   id: string;
@@ -194,6 +195,37 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error('Error syncing profiles:', err);
       setSyncMessage('❌ Failed to sync profiles');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUserAction = async (action: 'disable' | 'enable', userId: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ action }),
+      });
+
+      if (response.ok) {
+        // Refresh user details
+        await fetchUserDetails(userId);
+        setSyncMessage(`User ${action}d successfully`);
+        setTimeout(() => setSyncMessage(null), 3000);
+      } else {
+        const data = await response.json();
+        setError(data.error || `Failed to ${action} user`);
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing user:`, error);
+      setError(`Failed to ${action} user`);
     } finally {
       setIsLoading(false);
     }
@@ -472,6 +504,32 @@ export default function AdminDashboard() {
                     </div>
                   )}
 
+                  {/* User Management Actions */}
+                  {userDetails && (
+                    <div className="mt-6 p-4 border border-gray-200 rounded-lg">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">User Management</h4>
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={() => handleUserAction('disable', userDetails.id)}
+                          disabled={isLoading}
+                          className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                        >
+                          Disable Account
+                        </button>
+                        <button
+                          onClick={() => handleUserAction('enable', userDetails.id)}
+                          disabled={isLoading}
+                          className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                        >
+                          Enable Account
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Disabled accounts cannot log in or access their data.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Subscription Management */}
                   {userDetails && (
                     <div className="mt-6">
@@ -499,6 +557,39 @@ export default function AdminDashboard() {
                       )}
                     </div>
                   )}
+
+                  {/* User Enable/Disable Actions */}
+                  <div className="mt-4">
+                    <button
+                      onClick={() => handleUserAction(userDetails.subscription?.status === 'active' ? 'disable' : 'enable', userDetails.id)}
+                      className={`w-full px-4 py-2 rounded-lg font-semibold transition-all flex items-center justify-center space-x-2 ${
+                        userDetails.subscription?.status === 'active'
+                          ? 'bg-red-600 text-white hover:bg-red-700'
+                          : 'bg-green-600 text-white hover:bg-green-700'
+                      }`}
+                    >
+                      {isLoading ? (
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4zm16 0a8 8 0 01-8 8v-8h8z"></path>
+                        </svg>
+                      ) : userDetails.subscription?.status === 'active' ? (
+                        <>
+                          <span>Disable User</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m6 0l-3 3m3-3l-3-3" />
+                          </svg>
+                        </>
+                      ) : (
+                        <>
+                          <span>Enable User</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 0l3-3m-3 3l3 3" />
+                          </svg>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center text-gray-500">
@@ -507,6 +598,11 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Content Moderation Section */}
+        <div className="mt-8">
+          <ContentModeration adminToken={adminToken} />
         </div>
       </div>
     </div>

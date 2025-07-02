@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../context/AuthContext";
+import { defaultSEO, generateStructuredData } from "../lib/seo";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,10 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "writemystory.ai - Jij vertelt, wij schrijven",
-  description: "Jij vertelt, wij schrijven – jouw verhaal automatisch gebundeld.",
+  ...defaultSEO,
   icons: {
     icon: "/faviconWMS.ico",
+    apple: "/faviconWMS.ico",
   },
 };
 
@@ -26,8 +27,27 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const websiteStructuredData = generateStructuredData('website', {});
+  const organizationStructuredData = generateStructuredData('organization', {});
+
   return (
-    <html lang="en">
+    <html lang="nl">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteStructuredData),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(organizationStructuredData),
+          }}
+        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface ChapterData {
   id: string;
@@ -78,11 +78,7 @@ export default function ChapterProgress({ projectId, userId, questions, isDeceas
   const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
   const [generatingForChapter, setGeneratingForChapter] = useState<string | null>(null);
 
-  useEffect(() => {
-    calculateChapterProgress();
-  }, [questions]);
-
-  const calculateChapterProgress = () => {
+  const calculateChapterProgress = useCallback(() => {
     const chapterData: ChapterData[] = [];
     
     // Get all chapters based on whether person is deceased or not
@@ -119,7 +115,11 @@ export default function ChapterProgress({ projectId, userId, questions, isDeceas
     });
 
     setChapters(chapterData);
-  };
+  }, [questions, isDeceased]);
+
+  useEffect(() => {
+    calculateChapterProgress();
+  }, [calculateChapterProgress]);
 
   const handleGenerateChapterQuestions = async (chapterId: string) => {
     setGeneratingForChapter(chapterId);
