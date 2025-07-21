@@ -60,83 +60,74 @@ export default function PricingPage() {
   const plans = [
     {
       name: 'Gratis Kennismaking',
-      description: 'Perfect om te ontdekken hoe het werkt',
-      monthlyPrice: 0,
+      description: 'Ontdek hoe het werkt – zonder verplichtingen',
+      projectPrice: 0,
       priceId: 'free',
       features: [
-        '1 verhaalproject starten',
+        '1 proefproject',
         'Tot 10 vragen beantwoorden',
         'Voorbeeld hoofdstuk genereren',
-        'Dashboard toegang',
-        'E-mail ondersteuning'
+        'Alleen via browser'
       ],
       limitations: [
-        'Geen volledig boek',
-        'Beperkte vragenset',
-        'Geen premium lay-outs'
+        'Geen AI-ondersteuning',
+        'Geen e-mail ondersteuning',
+        'Geen volledig verhaal',
+        'Beperkte functies'
       ],
-      cta: 'Gratis proberen',
+      cta: 'Probeer gratis',
       popular: false,
       color: 'gray'
     },
     {
-      name: 'Starter',
-      description: 'Start je verhaal met tekstgebaseerde input via WhatsApp of browser. Inclusief AI-ondersteuning, PDF-export en e-mail support.',
-      monthlyPrice: 19,
-      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER_MONTHLY,
+      name: 'Basis',
+      description: 'Voor een persoonlijk verhaal via WhatsApp',
+      projectPrice: 49,
+      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_BASIC_PROJECT,
       features: [
-        'WhatsApp & browser toegang',
-        'Tekst-gebaseerde verhalen',
-        'Basis AI-ondersteuning',
-        'PDF download',
+        'Input via WhatsApp en browser',
+        'AI-gegenereerde tekst',
+        'PDF-download van je verhaal',
         'E-mail ondersteuning',
-        '1 verhaalproject'
+        '1 afgerond verhaal'
       ],
       limitations: [
         'Geen afbeeldingen',
-        'Beperkte AI-functies',
-        'Geen gedrukt boek'
+        'Beperkte revisiemogelijkheden'
       ],
-      cta: 'Start met Starter',
+      cta: 'Start met Basis',
       popular: false,
       color: 'blue'
     },
     {
       name: 'Comfort',
-      description: 'Meer ruimte en mogelijkheden: afbeeldingen, slimmere AI-bewerking, verbeterde lay-outs en ondersteuning voor meerdere projecten.',
-      monthlyPrice: 69,
-      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_COMFORT_MONTHLY,
+      description: 'Voor visueel rijkere verhalen en slimmere AI',
+      projectPrice: 79,
+      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_COMFORT_PROJECT,
       features: [
-        'Alles van Starter plan',
-        'Afbeelding ondersteuning',
-        'Slimmere AI-bewerking',
-        'Meer opslagruimte',
-        'Verbeterde lay-out opties',
-        'WhatsApp + e-mail ondersteuning',
-        'Tot 3 verhaalprojecten'
+        'Alles van Basis',
+        'AI-gegenereerde afbeeldingen',
+        'Verbeterde lay-out en bewerkingen',
+        'Tot 3 revisierondes',
+        'WhatsApp & e-mail ondersteuning'
       ],
-      limitations: [
-        'Geen menselijke review',
-        'Geen gedrukt boek inbegrepen'
-      ],
+      limitations: [],
       cta: 'Kies Comfort',
       popular: true,
       color: 'green'
     },
     {
       name: 'Deluxe',
-      description: 'Onbeperkte input, volledige AI-hoofdstukken, afbeeldingen en menselijke review.',
-      monthlyPrice: 99,
-      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_DELUXE_MONTHLY,
+      description: 'Voor het meest complete en professionele eindresultaat',
+      projectPrice: 129,
+      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_DELUXE_PROJECT,
       features: [
-        'Alles van Comfort plan',
+        'Alles van Comfort',
         'Onbeperkte input',
         'Volledige AI-hoofdstukken',
-        'Menselijke review & editing',
-        'Premium afbeelding ondersteuning',
-        'Prioriteit ondersteuning',
-        'Onbeperkte verhaalprojecten',
-        'Geavanceerde lay-out opties'
+        'Inclusief menselijke review en eindredactie',
+        'Meerdere exportformaten (PDF, Word, ePub)',
+        'Prioriteit support'
       ],
       limitations: [],
       cta: 'Ga voor Deluxe',
@@ -176,8 +167,8 @@ export default function PricingPage() {
               Kies je verhaal-pakket
             </h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-              Begin gratis en upgrade wanneer je klaar bent om je verhaal compleet te maken. 
-              Alle plannen omvatten onze AI-begeleiding en smart vragenservice.
+              Begin gratis en betaal alleen voor complete verhaalprojecten. 
+              Alle plannen omvatten onze AI-begeleiding en WhatsApp ondersteuning.
             </p>
           </div>
 
@@ -201,7 +192,7 @@ export default function PricingPage() {
                   <h3 className="text-xl font-bold text-gray-900 mb-2">{plan.name}</h3>
                   <p className="text-gray-600 text-sm mb-4">{plan.description}</p>
                   
-                  {plan.monthlyPrice === 0 ? (
+                  {plan.projectPrice === 0 ? (
                     <div className="mb-4">
                       <span className="text-3xl font-bold text-gray-900">Gratis</span>
                       <span className="text-gray-600"> / altijd</span>
@@ -209,9 +200,9 @@ export default function PricingPage() {
                   ) : (
                     <div className="mb-4">
                       <span className="text-3xl font-bold text-gray-900">
-                        €{plan.monthlyPrice}
+                        €{plan.projectPrice}
                       </span>
-                      <span className="text-gray-600">/maand</span>
+                      <span className="text-gray-600"> / project</span>
                     </div>
                   )}
                 </div>
@@ -235,7 +226,7 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                {plan.monthlyPrice === 0 ? (
+                {plan.projectPrice === 0 ? (
                   <button
                     onClick={() => window.location.href = user ? '/dashboard' : '/signup'}
                     className={`w-full py-3 px-6 rounded-lg font-medium transition-colors ${getButtonClasses(plan.color)}`}
@@ -261,85 +252,8 @@ export default function PricingPage() {
             ))}
           </div>
 
-          {/* Print Upgrade Add-on */}
-          <div className="mt-12 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">📚 Print Upgrade</h2>
-              <p className="text-gray-600 mb-6">
-                Ontvang je verhaal als professioneel gedrukt hardcover boek. Inclusief persoonlijke omslag, hoogwaardig papier en gratis verzending binnen Nederland.
-              </p>
-              
-              <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold mb-2">Gedrukt Hardcover Boek</h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  Ontvang je verhaal als professioneel gedrukt hardcover boek. Inclusief persoonlijke omslag, hoogwaardig papier en gratis verzending binnen Nederland.
-                </p>
-                
-                <div className="text-3xl font-bold text-gray-900 mb-4">
-                  €169<span className="text-base font-normal text-gray-600">/boek</span>
-                </div>
-                
-                <ul className="text-sm text-gray-600 mb-6 space-y-2">
-                  <li className="flex items-center">
-                    <svg className="h-4 w-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Professionele hardcover binding
-                  </li>
-                  <li className="flex items-center">
-                    <svg className="h-4 w-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Hoogkwalitatieve papier en print
-                  </li>
-                  <li className="flex items-center">
-                    <svg className="h-4 w-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Gepersonaliseerde omslag
-                  </li>
-                  <li className="flex items-center">
-                    <svg className="h-4 w-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Gratis verzending in Nederland
-                  </li>
-                </ul>
-                
-                <button
-                  onClick={() => {
-                    if (!user) {
-                      window.location.href = '/login?redirect=/pricing';
-                      return;
-                    }
-                    handleSubscribe(process.env.NEXT_PUBLIC_STRIPE_PRICE_PRINT_UPGRADE!, 'Print Upgrade');
-                  }}
-                  className="w-full py-3 px-6 rounded-lg font-medium transition-colors bg-orange-600 hover:bg-orange-700 text-white"
-                >
-                  Bestel Print Upgrade
-                </button>
-                
-                <p className="text-xs text-gray-500 mt-3">
-                  * Print upgrade kan worden besteld voor elk voltooid verhaal
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Additional Information */}
-          <div className="mt-16 grid md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold mb-2">30 dagen geld terug</h3>
-              <p className="text-gray-600 text-sm">
-                Niet tevreden? Krijg je geld terug binnen 30 dagen, geen vragen gesteld.
-              </p>
-            </div>
-            
+          <div className="mt-16 grid md:grid-cols-2 gap-8">
             <div className="text-center">
               <div className="w-16 h-16 mx-auto bg-blue-100 rounded-full flex items-center justify-center mb-4">
                 <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -358,39 +272,33 @@ export default function PricingPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192L5.636 18.364M12 2.25a9.75 9.75 0 11-9.75 9.75 9.75 9.75 0 019.75-9.75z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold mb-2">Altijd opzeggen</h3>
+              <h3 className="text-lg font-semibold mb-2">Betaal per project</h3>
               <p className="text-gray-600 text-sm">
-                Stop wanneer je wilt. Geen verborgen kosten, geen lange contracten.
+                Geen abonnementen of terugkerende kosten. Betaal alleen voor afgeronde verhaalprojecten.
               </p>
             </div>
           </div>
 
           {/* FAQ Section */}
           <div className="mt-16 bg-white rounded-lg shadow-md p-8">
-            <h2 className="text-2xl font-bold text-center mb-8">Veelgestelde vragen over prijzen</h2>
+            <h2 className="text-2xl font-bold text-center mb-8">Veelgestelde vragen over onze pakketten</h2>
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <h3 className="font-semibold mb-2">Kan ik later upgraden of downgraden?</h3>
+                <h3 className="font-semibold mb-2">Kan ik meerdere projecten maken?</h3>
                 <p className="text-gray-600 text-sm">
-                  Ja, je kunt altijd van plan wisselen. Bij upgraden betaal je direct het verschil, bij downgraden krijg je een tegoed voor de volgende maand.
+                  Ja, je kunt zoveel projecten maken als je wilt. Je betaalt per afgerond project volgens het pakket dat je kiest.
                 </p>
               </div>
               <div>
-                <h3 className="font-semibold mb-2">Wat gebeurt er als ik stop?</h3>
+                <h3 className="font-semibold mb-2">Wat gebeurt er na betaling?</h3>
                 <p className="text-gray-600 text-sm">
-                  Je houdt toegang tot al je gegenereerde content. Downloaden blijft mogelijk, nieuwe vragen genereren niet.
+                  Na betaling krijg je direct toegang tot alle functies van je gekozen pakket en kun je je verhaal voltooien.
                 </p>
               </div>
               <div>
-                <h3 className="font-semibold mb-2">Zijn er extra kosten voor gedrukte boeken?</h3>
+                <h3 className="font-semibold mb-2">Hoe werkt de gratis kennismaking?</h3>
                 <p className="text-gray-600 text-sm">
-                  In Premium en Familie pakketten is 1 boek per verhaal inbegrepen. Extra exemplaren kosten €25 per stuk.
-                </p>
-              </div>
-              <div>
-                <h3 className="font-semibold mb-2">Hoe werkt de gratis trial?</h3>
-                <p className="text-gray-600 text-sm">
-                  De gratis versie is onbeperkt bruikbaar maar beperkt in functionaliteit. Perfect om te ervaren hoe ons platform werkt.
+                  Je kunt gratis beginnen met een beperkt proefproject om te ervaren hoe ons platform werkt voordat je een volledig pakket koopt.
                 </p>
               </div>
             </div>

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { questionId, teamMemberIds, storyId, userId } = await request.json();
+    const { questionId, teamMemberIds } = await request.json();
 
     if (!questionId) {
       return NextResponse.json(
