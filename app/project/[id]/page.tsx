@@ -70,6 +70,19 @@ export default function ProjectPage() {
   const [introductionSaving, setIntroductionSaving] = useState(false);
   const [whatsappChatFile, setWhatsappChatFile] = useState<File | null>(null);
   const [whatsappUploading, setWhatsappUploading] = useState(false);
+  
+  // New state for managing question editing
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [editingQuestionAnswer, setEditingQuestionAnswer] = useState<string>('');
+  const [savingQuestionId, setSavingQuestionId] = useState<string | null>(null);
+  // State for temporary answers for unanswered questions
+  const [tempAnswers, setTempAnswers] = useState<Record<string, string>>({});
+  
+  // State for story editing
+  const [editingStory, setEditingStory] = useState(false);
+  const [editedStoryContent, setEditedStoryContent] = useState<string>('');
+  const [savingStory, setSavingStory] = useState(false);
+  const [storyLoaded, setStoryLoaded] = useState(false);
 
   // Load project data
   const loadProject = useCallback(async () => {
@@ -119,12 +132,35 @@ export default function ProjectPage() {
       const data = await response.json();
       
       if (data.success) {
-        setIntroduction(data.introduction || '');
+        const loadedIntroduction = data.introduction || '';
+        setIntroduction(loadedIntroduction);
+        
+        // Only hide the form if we actually loaded an existing introduction from the database
+        if (loadedIntroduction && loadedIntroduction.trim().length > 0) {
+          setShowIntroductionForm(false);
+        }
       }
     } catch (error) {
       console.error('Error loading introduction:', error);
     }
   }, [projectId, user?.id]);
+
+  // Load existing story
+  const loadExistingStory = useCallback(async () => {
+    if (!projectId || !user?.id || storyLoaded) return;
+    
+    try {
+      const response = await fetch(`/api/story-preview?projectId=${projectId}&userId=${user.id}`);
+      const data = await response.json();
+      
+      if (data.exists && data.storyPreview) {
+        setStoryPreview(data.storyPreview.content);
+        setStoryLoaded(true);
+      }
+    } catch (error) {
+      console.error('Error loading existing story:', error);
+    }
+  }, [projectId, user?.id, storyLoaded]);
 
   // Load questions when component mounts
   useEffect(() => {
@@ -141,12 +177,10 @@ export default function ProjectPage() {
     loadIntroduction();
   }, [loadIntroduction]);
 
-  // Hide introduction form if introduction already exists
+  // Load existing story when component mounts
   useEffect(() => {
-    if (introduction && introduction.trim().length > 0) {
-      setShowIntroductionForm(false);
-    }
-  }, [introduction]);
+    loadExistingStory();
+  }, [loadExistingStory]);
 
   const handleGenerateGenericQuestions = async () => {
     if (!projectId || !user?.id) return;
@@ -338,6 +372,123 @@ export default function ProjectPage() {
     } catch (error) {
       console.error('Error deleting question:', error);
       alert('Er ging iets mis bij het verwijderen van de vraag.');
+    }
+  };
+
+  // New functions for question editing workflow
+  const handleEditQuestion = (questionId: string, currentAnswer: string) => {
+    setEditingQuestionId(questionId);
+    setEditingQuestionAnswer(currentAnswer);
+  };
+
+  const handleSaveQuestionAnswer = async (questionId: string, answer: string) => {
+    if (!answer.trim()) {
+      alert('Vul een antwoord in voordat je opslaat.');
+      return;
+    }
+
+    setSavingQuestionId(questionId);
+    try {
+      await handleAnswerQuestion(questionId, answer);
+      // Clear editing states and temp answers
+      setEditingQuestionId(null);
+      setEditingQuestionAnswer('');
+      setTempAnswers(prev => {
+        const updated = { ...prev };
+        delete updated[questionId];
+        return updated;
+      });
+    } finally {
+      setSavingQuestionId(null);
+    }
+  };
+
+  const handleCancelEditQuestion = () => {
+    setEditingQuestionId(null);
+    setEditingQuestionAnswer('');
+  };
+
+  // Story functions
+  const handleEditStory = () => {
+    setEditedStoryContent(storyPreview);
+    setEditingStory(true);
+  };
+
+  const handleSaveStoryEdit = async () => {
+    if (!projectId || !user?.id) return;
+    
+    setSavingStory(true);
+    try {
+      const response = await fetch('/api/story-preview', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId,
+          userId: user.id,
+          content: editedStoryContent,
+          status: 'edited'
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setStoryPreview(editedStoryContent);
+        setEditingStory(false);
+        alert('Verhaal succesvol opgeslagen!');
+      } else {
+        alert(`Fout: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error saving story edit:', error);
+      alert('Er ging iets mis bij het opslaan van het verhaal.');
+    } finally {
+      setSavingStory(false);
+    }
+  };
+
+  const handleCancelStoryEdit = () => {
+    setEditingStory(false);
+    setEditedStoryContent('');
+  };
+
+  const handleUpdateStory = async () => {
+    if (!projectId || !user?.id) return;
+    
+    // Ask for confirmation
+    if (!confirm('Weet je zeker dat je het verhaal wilt bijwerken met je nieuwe antwoorden? Je huidige bewerkingen gaan verloren.')) {
+      return;
+    }
+    
+    setIsGeneratingStory(true);
+    try {
+      const response = await fetch('/api/generate-story-preview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId,
+          userId: user.id,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setStoryPreview(data.storyPreview);
+        setEditingStory(false); // Close edit mode if open
+        alert('Verhaal succesvol bijgewerkt met je nieuwe antwoorden!');
+      } else {
+        alert(`Fout: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error updating story:', error);
+      alert('Er ging iets mis bij het bijwerken van het verhaal.');
+    } finally {
+      setIsGeneratingStory(false);
     }
   };
 
@@ -704,66 +855,117 @@ export default function ProjectPage() {
 
             <div className="space-y-4">
               {questions.length > 0 ? (
-                questions.map((question) => (
-                  <div key={question.id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm font-medium ${
-                          question.category === 'memorial' 
-                            ? 'text-yellow-600' 
-                            : 'text-blue-600'
-                        }`}>
-                          {question.category === 'memorial' ? '🕊️ ' : ''}{question.category}
-                        </span>
-                        {question.category === 'memorial' && (
-                          <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">
-                            Memorial
+                questions.map((question) => {
+                  const isEditing = editingQuestionId === question.id;
+                  const isSaving = savingQuestionId === question.id;
+                  
+                  return (
+                    <div key={question.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-medium ${
+                            question.category === 'memorial' 
+                              ? 'text-yellow-600' 
+                              : 'text-blue-600'
+                          }`}>
+                            {question.category === 'memorial' ? '🕊️ ' : ''}{question.category}
                           </span>
+                          {question.category === 'memorial' && (
+                            <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">
+                              Memorial
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            question.answer ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {question.answer ? 'Beantwoord' : 'Open'}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-gray-800 mb-3">{question.question}</p>
+                      
+                      {question.answer && !isEditing ? (
+                        // Display mode for answered questions
+                        <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                          <p className="text-gray-700">{question.answer}</p>
+                        </div>
+                      ) : (
+                        // Edit mode for unanswered questions or when editing
+                        <div className="mt-3 mb-3">
+                          <textarea
+                            className="w-full border border-gray-300 rounded-lg p-3 h-24 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Type hier je antwoord..."
+                            value={isEditing ? editingQuestionAnswer : (tempAnswers[question.id] || '')}
+                            onChange={(e) => {
+                              if (isEditing) {
+                                setEditingQuestionAnswer(e.target.value);
+                              } else {
+                                // For unanswered questions, store in tempAnswers
+                                setTempAnswers(prev => ({
+                                  ...prev,
+                                  [question.id]: e.target.value
+                                }));
+                              }
+                            }}
+                            disabled={isSaving}
+                          />
+                        </div>
+                      )}
+                      
+                      <div className="flex gap-2">
+                        {question.answer && !isEditing ? (
+                          // Buttons for answered questions
+                          <>
+                            <button
+                              onClick={() => handleEditQuestion(question.id, question.answer || '')}
+                              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                              Bewerken
+                            </button>
+                            <button
+                              onClick={() => handleDeleteQuestion(question.id)}
+                              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+                            >
+                              Verwijderen
+                            </button>
+                          </>
+                        ) : (
+                          // Buttons for unanswered or editing questions
+                          <>
+                            <button
+                              onClick={() => handleSaveQuestionAnswer(
+                                question.id, 
+                                isEditing ? editingQuestionAnswer : (tempAnswers[question.id] || '')
+                              )}
+                              disabled={isSaving}
+                              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            >
+                              {isSaving ? 'Opslaan...' : 'Opslaan'}
+                            </button>
+                            {isEditing && (
+                              <button
+                                onClick={handleCancelEditQuestion}
+                                disabled={isSaving}
+                                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                              >
+                                Annuleren
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteQuestion(question.id)}
+                              disabled={isSaving}
+                              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            >
+                              Verwijderen
+                            </button>
+                          </>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          question.answer ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {question.answer ? 'Beantwoord' : 'Open'}
-                        </span>
-                        <button
-                          onClick={() => handleDeleteQuestion(question.id)}
-                          className="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50 transition-colors"
-                          title="Vraag verwijderen"
-                        >
-                          🗑️
-                        </button>
-                      </div>
                     </div>
-                    <p className="text-gray-800 mb-3">{question.question}</p>
-                    {question.answer ? (
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-gray-700">{question.answer}</p>
-                      </div>
-                    ) : (
-                      <div className="mt-3">
-                        <textarea
-                          className="w-full border border-gray-300 rounded-lg p-3 h-24 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Type hier je antwoord..."
-                          onBlur={(e) => {
-                            if (e.target.value.trim()) {
-                              handleAnswerQuestion(question.id, e.target.value.trim());
-                            }
-                          }}
-                        />
-                      </div>
-                    )}
-                    <div className="flex gap-2 mt-4">
-                      <button
-                        onClick={() => handleDeleteQuestion(question.id)}
-                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-                      >
-                        Verwijderen
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="text-center py-8">
                   <p className="text-gray-500">Nog geen vragen beschikbaar. Genereer je eerste vragen!</p>
@@ -778,12 +980,27 @@ export default function ProjectPage() {
               <h2 className="text-xl font-semibold text-gray-800">📚 Verhaal preview</h2>
               <div className="flex gap-2">
                 {storyPreview ? (
-                  <button
-                    onClick={() => setShowStoryModal(true)}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    📖 Bekijk verhaal
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setShowStoryModal(true)}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      📖 Bekijk verhaal
+                    </button>
+                    <button
+                      onClick={handleEditStory}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      ✏️ Bewerken
+                    </button>
+                    <button
+                      onClick={handleUpdateStory}
+                      disabled={isGeneratingStory}
+                      className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                    >
+                      🔄 {isGeneratingStory ? 'Bijwerken...' : 'Bijwerken'}
+                    </button>
+                  </>
                 ) : (
                   <button
                     onClick={handleGenerateStoryPreview}
@@ -824,17 +1041,124 @@ export default function ProjectPage() {
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
                 <div className="flex items-center justify-between p-6 border-b">
-                  <h3 className="text-xl font-semibold">Je verhaal preview</h3>
+                  <h3 className="text-xl font-semibold">
+                    {editingStory ? 'Verhaal bewerken' : 'Je verhaal preview'}
+                  </h3>
                   <button
-                    onClick={() => setShowStoryModal(false)}
+                    onClick={() => {
+                      setShowStoryModal(false);
+                      if (editingStory) {
+                        handleCancelStoryEdit();
+                      }
+                    }}
                     className="text-gray-400 hover:text-gray-600"
                   >
                     ✕
                   </button>
                 </div>
-                <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                  <div className="prose max-w-none text-gray-800 leading-relaxed whitespace-pre-wrap">
-                    {storyPreview}
+                
+                {editingStory ? (
+                  // Edit mode
+                  <div className="p-6">
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Bewerk je verhaal:
+                      </label>
+                      <textarea
+                        className="w-full h-96 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-serif text-base leading-relaxed"
+                        value={editedStoryContent}
+                        onChange={(e) => setEditedStoryContent(e.target.value)}
+                        placeholder="Bewerk hier je verhaal..."
+                        disabled={savingStory}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-3">
+                      <button
+                        onClick={handleCancelStoryEdit}
+                        disabled={savingStory}
+                        className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                      >
+                        Annuleren
+                      </button>
+                      <button
+                        onClick={handleSaveStoryEdit}
+                        disabled={savingStory || !editedStoryContent.trim()}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                      >
+                        {savingStory ? 'Opslaan...' : 'Opslaan'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // View mode
+                  <>
+                    <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+                      <div className="prose max-w-none text-gray-800 leading-relaxed whitespace-pre-wrap">
+                        {storyPreview}
+                      </div>
+                    </div>
+                    <div className="border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
+                      <button
+                        onClick={handleEditStory}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        ✏️ Bewerken
+                      </button>
+                      <button
+                        onClick={handleUpdateStory}
+                        disabled={isGeneratingStory}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                      >
+                        🔄 {isGeneratingStory ? 'Bijwerken...' : 'Bijwerken'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Story Edit Modal (when editing from preview section) */}
+          {editingStory && !showStoryModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                <div className="flex items-center justify-between p-6 border-b">
+                  <h3 className="text-xl font-semibold">Verhaal bewerken</h3>
+                  <button
+                    onClick={handleCancelStoryEdit}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="p-6">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Bewerk je verhaal:
+                    </label>
+                    <textarea
+                      className="w-full h-96 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-serif text-base leading-relaxed"
+                      value={editedStoryContent}
+                      onChange={(e) => setEditedStoryContent(e.target.value)}
+                      placeholder="Bewerk hier je verhaal..."
+                      disabled={savingStory}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={handleCancelStoryEdit}
+                      disabled={savingStory}
+                      className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      Annuleren
+                    </button>
+                    <button
+                      onClick={handleSaveStoryEdit}
+                      disabled={savingStory || !editedStoryContent.trim()}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    >
+                      {savingStory ? 'Opslaan...' : 'Opslaan'}
+                    </button>
                   </div>
                 </div>
               </div>

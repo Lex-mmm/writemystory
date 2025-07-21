@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, isSupabaseConfigured } from '../../../../lib/supabase';
+import { supabaseAdmin, isSupabaseConfigured } from '../../../../lib/supabase';
 
-// Helper function to set user context for RLS
-async function setUserContext(userId: string) {
-  try {
-    await supabase.rpc('set_config', {
-      setting_name: 'app.current_user_id',
-      setting_value: userId,
-      is_local: true
-    });
-  } catch (error) {
-    console.error('Error setting user context:', error);
-  }
+// Test function to verify route is working
+export async function OPTIONS() {
+  console.log('OPTIONS request received for stories/[id]');
+  return NextResponse.json({ message: 'Route is active' }, { status: 200 });
 }
 
 // Get a specific project
@@ -34,21 +27,32 @@ export async function GET(
   try {
     const { id: projectId } = await params;
     
-    // Set user context for RLS
-    await setUserContext(userId);
+    // Use service role client to bypass RLS
+    if (!supabaseAdmin) {
+      console.error('Service role client not available');
+      return NextResponse.json({ error: 'Service role client not configured' }, { status: 500 });
+    }
 
-    // Get the specific project
-    const { data: project, error } = await supabase
+    // Get the specific project using service role
+    const { data: projects, error } = await supabaseAdmin
       .from('projects')
       .select('*')
       .eq('id', projectId)
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', userId);
 
     if (error) {
       console.error('Error fetching project:', error);
+      return NextResponse.json({ 
+        error: 'Failed to fetch project', 
+        details: error.message 
+      }, { status: 500 });
+    }
+
+    if (!projects || projects.length === 0) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
+
+    const project = projects[0];
 
     // Transform database format to frontend format
     const transformedProject = {
@@ -77,27 +81,43 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  console.log('=== DELETE ENDPOINT CALLED ===');
+  console.log('Request URL:', request.url);
+  console.log('Request method:', request.method);
+  
   if (!isSupabaseConfigured()) {
     console.error('Supabase not configured properly');
     return NextResponse.json({ error: 'Database service unavailable' }, { status: 503 });
   }
-
+  
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('Service role key not configured');
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+  }
+  
+  if (!supabaseAdmin) {
+    console.error('Service role client not available');
+    return NextResponse.json({ error: 'Service role client not configured' }, { status: 500 });
+  }
+  
   try {
     const { id: projectId } = await params;
+    console.log('Project ID from params:', projectId);
     
-    // Get user ID from Authorization header or request body
+    // Get user ID from query params first, then try request body
     const { searchParams } = new URL(request.url);
     let userId = searchParams.get('userId');
+    console.log('User ID from query params:', userId);
     
+    // If not in query params, try to get from request body
     if (!userId) {
-      const body = await request.text();
-      if (body) {
-        try {
-          const parsedBody = JSON.parse(body);
-          userId = parsedBody.userId;
-        } catch {
-          // Not JSON or no userId in body
-        }
+      try {
+        const body = await request.json();
+        console.log('Request body:', body);
+        userId = body.userId;
+        console.log('User ID from body:', userId);
+      } catch (error) {
+        console.error('Error parsing request body:', error);
       }
     }
 
@@ -107,75 +127,150 @@ export async function DELETE(
         error: 'User ID is required for deletion' 
       }, { status: 400 });
     }
-
+    
     console.log('Deleting project:', projectId, 'for user:', userId);
 
-    // Set user context for RLS
-    await setUserContext(userId);
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(projectId)) {
+      console.error('Invalid project ID format:', projectId);
+      return NextResponse.json({ 
+        error: 'Invalid project ID format',
+        details: `Project ID must be a valid UUID, received: ${projectId}`
+      }, { status: 400 });
+    }
 
-    // First, check if the project exists and belongs to the user
-    const { data: project, error: checkError } = await supabase
+    if (!uuidRegex.test(userId)) {
+      console.error('Invalid user ID format:', userId);
+      return NextResponse.json({ 
+        error: 'Invalid user ID format',
+        details: `User ID must be a valid UUID, received: ${userId}`
+      }, { status: 400 });
+    }
+
+    // Use service role client to bypass RLS and verify project ownership
+    console.log('Verifying project ownership with service role...');
+    const { data: projects, error: verifyError } = await supabaseAdmin
       .from('projects')
       .select('id, user_id')
       .eq('id', projectId)
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', userId);
 
-    if (checkError || !project) {
-      console.error('Project not found or access denied:', checkError);
+    console.log('Project verification result:', { projects, verifyError });
+
+    if (verifyError) {
+      console.error('Error verifying project ownership:', verifyError);
       return NextResponse.json({ 
-        error: 'Project not found or access denied',
-        details: `Project ${projectId} not found for user ${userId}`
+        error: 'Failed to verify project ownership',
+        details: verifyError.message,
+        debug: { projectId, userId, verifyError }
+      }, { status: 500 });
+    }
+
+    if (!projects || projects.length === 0) {
+      console.error('Project not found or access denied for project:', projectId, 'user:', userId);
+      
+      // Since the project doesn't exist in the database, return a special response
+      // that tells the frontend to clean up localStorage
+      return NextResponse.json({ 
+        error: 'Project not found in database - it may have been deleted or never properly saved',
+        details: `Project ${projectId} not found for user ${userId}`,
+        shouldCleanupLocalStorage: true,
+        projectId: projectId,
+        debug: { projectId, userId, projects }
       }, { status: 404 });
     }
 
-    // Delete associated answers first
-    const { error: answersError } = await supabase
+    console.log('Project ownership verified, proceeding with deletion using service role...');
+
+    // Delete dependent records first using service role (bypasses RLS)
+    console.log('Step 1: Deleting answers...');
+    const { error: answersError } = await supabaseAdmin
       .from('answers')
       .delete()
       .eq('story_id', projectId);
 
     if (answersError) {
-      console.error('Error deleting answers:', answersError);
+      console.log('Answers deletion result:', answersError);
+      // Continue anyway - this might be expected if no answers exist
+    } else {
+      console.log('Answers deleted successfully');
     }
 
-    // Delete associated questions
-    const { error: questionsError } = await supabase
+    console.log('Step 2: Deleting questions...');
+    const { error: questionsError } = await supabaseAdmin
       .from('questions')
       .delete()
       .eq('story_id', projectId);
 
     if (questionsError) {
-      console.error('Error deleting questions:', questionsError);
+      console.log('Questions deletion result:', questionsError);
+      // Continue anyway - this might be expected if no questions exist
+    } else {
+      console.log('Questions deleted successfully');
     }
 
-    // Finally, delete the project
-    const { error: deleteError } = await supabase
+    console.log('Step 3: Deleting project...');
+    const { data: deletedProjects, error: deleteError } = await supabaseAdmin
       .from('projects')
       .delete()
       .eq('id', projectId)
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .select();
+
+    console.log('Project deletion result:', { deletedProjects, deleteError });
 
     if (deleteError) {
       console.error('Error deleting project:', deleteError);
       return NextResponse.json({ 
         error: 'Failed to delete project', 
-        details: deleteError.message 
+        details: deleteError.message,
+        debug: {
+          projectId,
+          userId,
+          deletedProjects,
+          deleteError
+        }
       }, { status: 500 });
     }
 
-    console.log('Project deleted successfully:', projectId);
+    if (!deletedProjects || deletedProjects.length === 0) {
+      console.warn('No project deleted. Project may not exist or user does not have permission.', {
+        projectId,
+        userId,
+        deletedProjects
+      });
+      return NextResponse.json({ 
+        error: 'Project not found or you do not have permission to delete this project',
+        details: `No project with ID ${projectId} found for user ${userId}`,
+        debug: {
+          projectId,
+          userId,
+          deletedProjects
+        }
+      }, { status: 404 });
+    }
+
+    console.log('Project deleted successfully:', projectId, 'Deleted project data:', deletedProjects[0]);
 
     return NextResponse.json({
       success: true,
-      message: 'Project deleted successfully'
+      message: 'Project deleted successfully',
+      deletedProject: deletedProjects[0],
+      debug: {
+        projectId,
+        userId,
+        deletedProjects
+      }
     });
-
+    
   } catch (error) {
-    console.error('Error in DELETE /api/stories/[id]:', error);
+    console.error('Error in DELETE test:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json({ 
-      error: 'Failed to delete project', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
+      error: 'DELETE endpoint error',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString()
     }, { status: 500 });
   }
 }

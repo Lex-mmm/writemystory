@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
+import { AuthTroubleshooter } from "../../components/AuthTroubleshooter";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -38,6 +39,10 @@ export default function LoginPage() {
         if (error.message.includes("Failed to fetch")) {
           setErrorMsg(
             "Connection to authentication server failed. Please check your internet connection and try again."
+          );
+        } else if (error.message.includes("refresh") || error.message.includes("Refresh Token Not Found")) {
+          setErrorMsg(
+            "Je sessie is verlopen. Gebruik de 'Reset login gegevens' knop hieronder als het probleem aanhoudt."
           );
         } else {
           setErrorMsg(error.message);
@@ -101,6 +106,11 @@ export default function LoginPage() {
           Wachtwoord vergeten?
         </Link>
       </p>
+      
+      {/* Add troubleshooter for auth issues */}
+      <div className="mt-6">
+        <AuthTroubleshooter />
+      </div>
     </main>
   );
 }

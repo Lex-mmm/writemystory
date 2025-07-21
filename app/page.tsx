@@ -36,7 +36,7 @@ export default function HomePage() {
                 ) : (
                   <>
                     <Link
-                      href="/signup"
+                      href="/demo"
                       className="px-8 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 shadow-md transition-all"
                     >
                       Begin nu gratis
@@ -291,13 +291,21 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link
-              href={user ? "/dashboard" : "/signup"}
+              href={user ? "/dashboard" : "/demo"}
               className="px-8 py-3 border border-transparent text-base font-medium rounded-lg text-blue-700 bg-white hover:bg-gray-50 shadow-md transition-all"
             >
               {user ? "Naar mijn dashboard" : "Begin gratis"}
             </Link>
+            {!user && (
+              <Link
+                href="/signup"
+                className="px-8 py-3 border border-white text-base font-medium rounded-lg text-white hover:bg-blue-700 shadow-sm transition-all"
+              >
+                Account aanmaken
+              </Link>
+            )}
             <Link
-              href="/prices"
+              href="/pricing"
               className="px-8 py-3 border border-white text-base font-medium rounded-lg text-white hover:bg-blue-700 shadow-sm transition-all"
             >
               Bekijk prijzen

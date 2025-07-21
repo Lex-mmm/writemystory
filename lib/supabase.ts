@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 // Create a single supabase client for interacting with your database
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 // Check if we're in a build environment
 const isBuild = process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -27,9 +28,37 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
+// Service role client for backend operations (bypasses RLS)
+// Only create this on the server-side where the service role key is available
+export const supabaseAdmin = (() => {
+  // Only create admin client on server-side (where environment variables are available)
+  if (typeof window === 'undefined' && supabaseServiceKey) {
+    return createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+  }
+  return null;
+})();
+
 // Add a function to check if Supabase is properly configured
 export function isSupabaseConfigured(): boolean {
   return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+}
+
+// Helper function to safely get the admin client with proper error handling
+export function getSupabaseAdmin() {
+  if (typeof window !== 'undefined') {
+    throw new Error('Admin client should only be used on the server-side');
+  }
+  
+  if (!supabaseAdmin) {
+    throw new Error('Admin client not configured - SUPABASE_SERVICE_ROLE_KEY missing');
+  }
+  
+  return supabaseAdmin;
 }
 
 // Add a simple connection check function

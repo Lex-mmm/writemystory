@@ -30,6 +30,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
+  // Utility function to clear auth-related data
+  const clearAuthData = () => {
+    try {
+      // Clear Supabase auth data
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') || key.includes('supabase')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.startsWith('sb-') || key.includes('supabase')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+    } catch (error) {
+      console.error("Error clearing auth data:", error);
+    }
+  };
+
   useEffect(() => {
     const setupAuth = async () => {
       try {
@@ -44,7 +64,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (error) {
           console.error("Auth session error:", error);
-          setConnectionError("Failed to connect to authentication service. Please try again later.");
+          
+          // Handle specific refresh token errors
+          if (error.message?.includes('refresh') || error.message?.includes('Refresh Token Not Found')) {
+            console.log("Refresh token invalid, clearing auth state");
+            // Clear any stored auth data
+            clearAuthData();
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+          } else {
+            setConnectionError("Failed to connect to authentication service. Please try again later.");
+          }
           setIsLoading(false);
           return;
         }
@@ -54,6 +85,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         const { data: authListener } = supabase.auth.onAuthStateChange(
           async (event, session) => {
+            console.log("Auth state change:", event, session?.user?.email);
+            
+            // Handle token refresh errors
+            if (event === 'TOKEN_REFRESHED' && !session) {
+              console.log("Token refresh failed, signing out");
+              setSession(null);
+              setUser(null);
+              return;
+            }
+            
             setSession(session);
             setUser(session?.user ?? null);
             setIsLoading(false);
@@ -81,9 +122,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
+      
+      // Clear any auth-related data from localStorage
+      clearAuthData();
     } catch (error) {
       console.error("Sign out error:", error);
       setConnectionError("Failed to sign out. Please try again later.");
+      
+      // Even if signOut fails, clear local data
+      clearAuthData();
     }
   };
 
@@ -96,7 +143,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       // Try to refresh the session
-      const { data } = await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error("Error refreshing session:", error);
+        
+        // Handle refresh token errors specifically
+        if (error.message?.includes('refresh') || error.message?.includes('Refresh Token Not Found')) {
+          console.log("Refresh token invalid, clearing session");
+          clearAuthData();
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          return null;
+        }
+        
+        // For other errors, try to use user ID as fallback
+        return user?.id || null;
+      }
+      
       if (data.session?.access_token) {
         return data.session.access_token;
       }
@@ -110,6 +175,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return null;
     } catch (error) {
       console.error("Error getting ID token:", error);
+      
+      // Check if this is a refresh token error
+      if (error instanceof Error && (error.message.includes('refresh') || error.message.includes('Refresh Token Not Found'))) {
+        console.log("Refresh token error caught, signing out");
+        try {
+          clearAuthData();
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+        } catch (signOutError) {
+          console.error("Error signing out:", signOutError);
+        }
+        return null;
+      }
+      
       return user?.id || null; // Fallback to user ID
     }
   };

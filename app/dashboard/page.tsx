@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Navigation from "../../components/Navigation";
 import Footer from "../../components/Footer";
-import ProtectedRoute from "../../components/ProtectedRoute";
+import GuestModeProvider, { useGuestMode } from "../../components/GuestModeProvider";
 import { useAuth } from "../../context/AuthContext";
 import Link from "next/link";
 import ProgressVisualization from "../../components/ProgressVisualization";
@@ -29,6 +29,7 @@ interface Project {
 // Create a separate component for the parts that need useSearchParams
 function DashboardContent() {
   const { user, getIdToken } = useAuth();
+  const { isGuestMode } = useGuestMode();
   const searchParams = useSearchParams();
   const projectCreated = searchParams.get("projectCreated");
   const projectId = searchParams.get("projectId");
@@ -38,8 +39,39 @@ function DashboardContent() {
   const [error, setError] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
 
+  // Demo data for guest mode
+  const demoProjects: Project[] = useMemo(() => [
+    {
+      id: 'demo-1',
+      personName: 'Mijn verhaal',
+      subjectType: 'self',
+      periodType: 'Heel mijn leven',
+      writingStyle: 'Walter Isaacson',
+      createdAt: new Date().toISOString(),
+      status: 'active',
+      progress: 35
+    },
+    {
+      id: 'demo-2',
+      personName: 'Oma\'s verhaal',
+      subjectType: 'other',
+      periodType: 'Heel haar leven',
+      writingStyle: 'Lale Gül',
+      createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'draft',
+      progress: 15
+    }
+  ], []);
+
   useEffect(() => {
     const fetchProjects = async () => {
+      if (isGuestMode) {
+        // Show demo data for guest users
+        setProjects(demoProjects);
+        setIsLoading(false);
+        return;
+      }
+      
       if (!user) return;
       
       try {
@@ -82,38 +114,39 @@ function DashboardContent() {
         
         const data = await response.json();
         console.log('Response data:', data);
+        console.log('Projects from database:', data.length);
         
         // If a new project was just created, make sure it's in the list
         if (projectCreated && projectId) {
           // Check if the project is already in the list
           const projectExists = data.some((project: Project) => project.id === projectId);
-          
-          if (!projectExists) {
-            // If not, get the new project details from localStorage if available
+          const deletedProjects = JSON.parse(localStorage.getItem('deletedProjects') || '[]');
+          if (!projectExists && !deletedProjects.includes(projectId)) {
+            // If not deleted, get the new project details from localStorage if available
             const newProjectData = localStorage.getItem(`story-${projectId}`);
-            
             if (newProjectData) {
               try {
                 const newProject = JSON.parse(newProjectData);
+                console.log('Adding project from localStorage:', newProject);
                 data.unshift(newProject); // Add it to the beginning of the array
               } catch (e) {
                 console.error("Error parsing new project data:", e);
               }
-            } else {
-              // If we don't have the project data, create a placeholder
-              data.unshift({
-                id: projectId,
-                personName: "Mijn verhaal",
-                subjectType: "self",
-                periodType: "fullLife",
-                writingStyle: "isaacson",
-                createdAt: new Date().toISOString(),
-                status: "active",
-                progress: 10
-              });
             }
+            // Do NOT create a placeholder if project is deleted or not in localStorage
+          } else if (deletedProjects.includes(projectId)) {
+            // Project was deleted, clear URL params and reload dashboard
+            console.log('Project was previously deleted, not re-adding from localStorage or as placeholder');
+            const url = new URL(window.location.href);
+            url.searchParams.delete('projectCreated');
+            url.searchParams.delete('projectId');
+            window.history.replaceState({}, '', url.toString());
+            window.location.reload();
+            return;
           }
         }
+        
+        console.log('Final projects list:', data.length);
         
         setProjects(data);
       } catch (err) {
@@ -144,7 +177,7 @@ function DashboardContent() {
     };
     
     fetchProjects();
-  }, [user, getIdToken, projectCreated, projectId]);
+  }, [user, getIdToken, projectCreated, projectId, isGuestMode, demoProjects]);
 
   const setFallbackProject = (id: string) => {
     setProjects([{
@@ -217,15 +250,57 @@ function DashboardContent() {
       if (response.ok) {
         // Remove from state
         setProjects(projects.filter(project => project.id !== projectIdToDelete));
-        
         // Remove from localStorage if it exists
         localStorage.removeItem(`story-${projectIdToDelete}`);
-        
+        // Track this project as deleted to prevent re-adding from localStorage
+        const deletedProjects = JSON.parse(localStorage.getItem('deletedProjects') || '[]');
+        if (!deletedProjects.includes(projectIdToDelete)) {
+          deletedProjects.push(projectIdToDelete);
+          localStorage.setItem('deletedProjects', JSON.stringify(deletedProjects));
+        }
+        // Clear URL parameters and reload dashboard if this was the "recently created" project
+        if (projectId === projectIdToDelete) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('projectCreated');
+          url.searchParams.delete('projectId');
+          window.history.replaceState({}, '', url.toString());
+          window.location.reload();
+          return;
+        }
         // Show success message
         console.log('Project deleted successfully');
       } else {
         const errorData = await response.json();
         console.error('Delete failed:', errorData);
+        
+        // If the project doesn't exist in the database, clean up localStorage
+        if (errorData.shouldCleanupLocalStorage && errorData.projectId) {
+          console.log('Cleaning up localStorage for non-existent project:', errorData.projectId);
+          localStorage.removeItem(`story-${errorData.projectId}`);
+          
+          // Track this project as deleted to prevent re-adding from localStorage
+          const deletedProjects = JSON.parse(localStorage.getItem('deletedProjects') || '[]');
+          if (!deletedProjects.includes(errorData.projectId)) {
+            deletedProjects.push(errorData.projectId);
+            localStorage.setItem('deletedProjects', JSON.stringify(deletedProjects));
+          }
+          
+          // Remove from state as well
+          setProjects(projects.filter(project => project.id !== projectIdToDelete));
+          
+          // Clear URL parameters to prevent re-adding from localStorage
+          if (projectId === errorData.projectId) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('projectCreated');
+            url.searchParams.delete('projectId');
+            window.history.replaceState({}, '', url.toString());
+          }
+          
+          // Show a different message for this case
+          alert('Dit project bestond niet meer in de database en is nu uit je lijst verwijderd.');
+          return; // Don't throw an error, treat as success
+        }
+        
         throw new Error(errorData.error || 'Failed to delete project');
       }
     } catch (error) {
@@ -246,13 +321,24 @@ function DashboardContent() {
       )}
       
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Mijn Projecten</h1>
-        <Link
-          href="/start"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          + Nieuw project
-        </Link>
+        <h1 className="text-3xl font-bold text-gray-800">
+          {isGuestMode ? 'Demo Dashboard' : 'Mijn Projecten'}
+        </h1>
+        {isGuestMode ? (
+          <button
+            onClick={() => alert('Maak eerst een account aan om een echt project te starten!')}
+            className="bg-gray-400 text-white px-4 py-2 rounded-lg cursor-not-allowed"
+          >
+            + Nieuw project (Demo)
+          </button>
+        ) : (
+          <Link
+            href="/start"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + Nieuw project
+          </Link>
+        )}
       </div>
 
       {isLoading ? (
@@ -280,7 +366,7 @@ function DashboardContent() {
             </div>
           </div>
         </div>
-      ) : projects.length === 0 ? (
+      ) : projects.length === 0 && !isGuestMode ? (
         <div className="text-center py-20 bg-gray-50 rounded-lg">
           <h2 className="text-2xl font-medium text-gray-700 mb-4">
             Je hebt nog geen projecten
@@ -327,13 +413,20 @@ function DashboardContent() {
                       
                       {/* Delete button */}
                       <button
-                        onClick={() => deleteProject(
-                          project.id, 
-                          project.subjectType === "self" ? "Mijn verhaal" : `Verhaal van ${project.personName}`
-                        )}
+                        onClick={() => isGuestMode 
+                          ? alert('Dit is een demo project en kan niet worden verwijderd. Maak een account aan voor echte functionaliteit!')
+                          : deleteProject(
+                              project.id, 
+                              project.subjectType === "self" ? "Mijn verhaal" : `Verhaal van ${project.personName}`
+                            )
+                        }
                         disabled={deletingProjectId === project.id}
-                        className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
-                        title="Project verwijderen"
+                        className={`p-2 rounded-full transition-colors disabled:opacity-50 ${
+                          isGuestMode 
+                            ? "text-gray-400 hover:text-gray-600 hover:bg-gray-50" 
+                            : "text-red-600 hover:text-red-800 hover:bg-red-50"
+                        }`}
+                        title={isGuestMode ? "Demo project" : "Project verwijderen"}
                       >
                         {deletingProjectId === project.id ? (
                           <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-red-600 border-r-transparent"></div>
@@ -397,6 +490,16 @@ function DashboardContent() {
           <p>User ID: {user?.id}</p>
           <p>Projects loaded: {projects.length}</p>
           {error && <p>Last error: {error}</p>}
+          <button
+            onClick={() => {
+              Object.keys(localStorage).forEach(k => k.startsWith('story-') && localStorage.removeItem(k));
+              localStorage.removeItem('deletedProjects');
+              window.location.reload();
+            }}
+            className="mt-2 px-2 py-1 bg-red-600 text-white rounded text-xs"
+          >
+            Clear All Project Data & Reload
+          </button>
         </div>
       )}
     </main>
@@ -418,12 +521,15 @@ function DashboardLoading() {
 // Main dashboard page component that wraps the content in Suspense
 export default function DashboardPage() {
   return (
-    <ProtectedRoute>
+    <GuestModeProvider 
+      allowGuestMode={true}
+      guestModeMessage="Je bekijkt een demo van het dashboard. Maak een account aan om je eigen projecten te starten en op te slaan."
+    >
       <Navigation />
       <Suspense fallback={<DashboardLoading />}>
         <DashboardContent />
       </Suspense>
       <Footer />
-    </ProtectedRoute>
+    </GuestModeProvider>
   );
 }

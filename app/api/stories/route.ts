@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { getUserSubscription, checkProjectLimit } from '../../../lib/subscriptionCheck';
 
 interface CreateProjectRequest {
@@ -120,19 +121,6 @@ function parseWhatsAppChat(chatContent: string) {
   }
 }
 
-// Helper function to set user context for RLS (same as in questions route)
-async function setUserContext(userId: string) {
-  try {
-    await supabase.rpc('set_config', {
-      setting_name: 'app.current_user_id',
-      setting_value: userId,
-      is_local: true
-    });
-  } catch (error) {
-    console.error('Error setting user context:', error);
-  }
-}
-
 // Helper function to create tables if they don't exist
 async function createTablesIfNeeded() {
   try {
@@ -217,13 +205,22 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    console.log('Fetching projects for user:', userId);
-    
-    // Set user context for RLS
-    await setUserContext(userId);
+    console.log('Fetching stories for user:', userId);
 
-    // Get projects for this user from Supabase
-    const { data: projects, error } = await supabase
+    // Use service role client to fetch projects for this user
+    const serviceClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // Fetch projects using the service role client (bypasses RLS)
+    const { data: projects, error } = await serviceClient
       .from('projects')
       .select('*')
       .eq('user_id', userId)
@@ -360,8 +357,17 @@ export async function POST(request: NextRequest) {
       }, { status: 403 });
     }
 
-    // Set user context for RLS
-    await setUserContext(userId);
+    // Use service role client to bypass RLS for project creation
+    const serviceClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
 
     // Process WhatsApp chat file if provided
     let whatsappChatContent = null;
@@ -376,8 +382,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Insert project into Supabase
-    const { data: project, error: insertError } = await supabase
+    // Insert project into Supabase using service role client
+    const { data: project, error: insertError } = await serviceClient
       .from('projects')
       .insert({
         user_id: userId,
@@ -477,11 +483,20 @@ export async function DELETE(request: NextRequest) {
   try {
     console.log('Deleting project:', projectId, 'for user:', userId);
 
-    // Set user context for RLS
-    await setUserContext(userId);
+    // Use service role client to delete the project
+    const serviceClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
 
     // Delete the project (CASCADE should handle related records)
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await serviceClient
       .from('projects')
       .delete()
       .eq('id', projectId)

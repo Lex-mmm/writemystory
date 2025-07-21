@@ -3,19 +3,6 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabase';
 import { createMessagesWithSystemPrompt, TOGETHER_AI_CONFIG } from '../../../lib/aiPrompts';
 import { getUserSubscription, checkQuestionLimit, canAccessFeature } from '../../../lib/subscriptionCheck';
 
-// Helper function to set user context for RLS
-async function setUserContext(userId: string) {
-  try {
-    await supabase.rpc('set_config', {
-      setting_name: 'app.current_user_id',
-      setting_value: userId,
-      is_local: true
-    });
-  } catch (error) {
-    console.error('Error setting user context:', error);
-  }
-}
-
 interface ProjectData {
   id: string;
   subject_type: string;
@@ -35,22 +22,32 @@ interface AnsweredQuestion {
 
 async function fetchProjectAndAnswers(projectId: string, userId: string) {
   try {
-    await setUserContext(userId);
+    console.log('Fetching project and answers for:', { projectId, userId });
 
-    // Get project details
-    const { data: project, error: projectError } = await supabase
+    // Get project details - bypass RLS issues by using explicit user_id check
+    const { data: projects, error: projectError } = await supabase
       .from('projects')
       .select('*')
       .eq('id', projectId)
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', userId);
 
-    if (projectError || !project) {
+    console.log('Project query result:', { projects, projectError });
+
+    if (projectError) {
       console.error('Error fetching project:', projectError);
       return null;
     }
 
+    if (!projects || projects.length === 0) {
+      console.error('No project found for user:', userId, 'project:', projectId);
+      return null;
+    }
+
+    const project = projects[0];
+    console.log('Project found:', project.id);
+
     // Get all answered questions and their answers
+    console.log('Fetching questions for project:', projectId);
     const { data: questionsData, error: questionsError } = await supabase
       .from('questions')
       .select(`
@@ -64,6 +61,11 @@ async function fetchProjectAndAnswers(projectId: string, userId: string) {
       `)
       .eq('story_id', projectId)
       .order('created_at', { ascending: true });
+
+    console.log('Questions query result:', { 
+      questionsCount: questionsData?.length || 0, 
+      questionsError 
+    });
 
     if (questionsError) {
       console.error('Error fetching questions:', questionsError);
@@ -88,6 +90,11 @@ async function fetchProjectAndAnswers(projectId: string, userId: string) {
     return { project, answers };
   } catch (error) {
     console.error('Error in fetchProjectAndAnswers:', error);
+    console.error('Error details:', {
+      projectId,
+      userId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
     return null;
   }
 }
@@ -264,6 +271,53 @@ Geef precies 8 vragen in dit formaat:
 8. [CATEGORIE] - [VRAAG]
 
 Maak elke vraag persoonlijk en specifiek voor dit verhaal.`;
+}
+
+function createBasicProjectQuestionPrompt(project: ProjectData): string {
+  const personName = project.subject_type === 'self' ? 'jezelf' : project.person_name || 'deze persoon';
+  const subjectType = project.subject_type;
+  const periodType = project.period_type;
+  
+  return `Je bent een ervaren biografieschrijver die eerste vragen genereert voor een nieuw levensverhaal project.
+
+PROJECTINFORMATIE:
+- Onderwerp: ${subjectType === 'self' ? 'Eigen verhaal (autobiografie)' : `Verhaal van ${project.person_name} (biografie)`}
+- Periode: ${periodType}
+- Schrijfstijl: ${project.writing_style}
+
+OPDRACHT:
+Genereer 8 uitnodigende startvragen in het Nederlands die helpen om ${personName} beter te leren kennen.
+
+RICHTLIJNEN:
+- Maak vragen die geschikt zijn als eerste vragen om een levensverhaal te beginnen
+- Focus op het ontdekken van de persoon, hun achtergrond en belangrijkste levensmomenten
+- Gebruik een warme, nieuwsgierige en respectvolle toon
+- Maak elke vraag open en uitnodigend voor uitgebreide antwoorden
+- Varieer tussen verschillende levensfases en aspecten
+
+CATEGORIEËN (kies passende categorieën):
+- childhood (jeugd)
+- family (familie)
+- education (onderwijs)
+- career (werk/carrière)
+- relationships (relaties)
+- hobbies (hobby's/interesses)
+- achievements (prestaties)
+- challenges (uitdagingen)
+- general (algemeen)
+
+Geef precies 8 vragen in dit formaat:
+
+1. [CATEGORIE] - [VRAAG]
+2. [CATEGORIE] - [VRAAG]
+3. [CATEGORIE] - [VRAAG]
+4. [CATEGORIE] - [VRAAG]
+5. [CATEGORIE] - [VRAAG]
+6. [CATEGORIE] - [VRAAG]
+7. [CATEGORIE] - [VRAAG]
+8. [CATEGORIE] - [VRAAG]
+
+Maak elke vraag persoonlijk en geschikt als startpunt voor ${subjectType === 'self' ? 'je eigen' : `${personName}'s`} levensverhaal.`;
 }
 
 async function callMistralForAnalysis(prompt: string): Promise<string> {
@@ -616,9 +670,8 @@ export async function POST(request: NextRequest) {
 
     // Check if we have enough context for smart questions
     if (!introductionText && answers.length === 0) {
-      return NextResponse.json({ 
-        error: 'Voor slimme vragen heb je een introductie nodig of beantwoorde vragen. Schrijf eerst een introductie of beantwoord enkele basis vragen.' 
-      }, { status: 400 });
+      console.log('No introduction or answers found, but will still try to generate basic smart questions based on project data');
+      // We'll still proceed but with more basic questions based on project information
     }
 
     // Handle introduction-based question generation
@@ -657,9 +710,21 @@ export async function POST(request: NextRequest) {
 
     // Handle regular answer-based question generation
     if (answers.length === 0) {
-      return NextResponse.json({ 
-        error: 'No answered questions found. Answer some questions first before generating new ones.' 
-      }, { status: 400 });
+      // Generate basic smart questions based on project data
+      console.log('No answers found, generating basic smart questions based on project information');
+      
+      const basicQuestionPrompt = createBasicProjectQuestionPrompt(project);
+      const questionsText = await callMistralForAnalysis(basicQuestionPrompt);
+      const savedQuestions = await parseAndSaveQuestions(questionsText, projectId);
+
+      return NextResponse.json({
+        success: true,
+        questionsGenerated: savedQuestions.length,
+        questions: savedQuestions,
+        rawQuestionsText: questionsText,
+        type: 'basic_smart',
+        message: `${savedQuestions.length} slimme vragen gegenereerd op basis van je project informatie`
+      });
     }
 
     console.log(`Found ${answers.length} answered questions for analysis`);

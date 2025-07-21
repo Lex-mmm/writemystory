@@ -34,14 +34,34 @@ export async function POST(request: NextRequest) {
     // Set user context for RLS
     await setUserContext(userId);
 
+    // First get the current project to preserve existing metadata
+    const { data: currentProject, error: fetchError } = await supabase
+      .from('projects')
+      .select('metadata')
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching current project:', fetchError);
+      return NextResponse.json({ 
+        error: 'Failed to fetch current project', 
+        details: fetchError.message 
+      }, { status: 500 });
+    }
+
+    // Merge introduction with existing metadata
+    const updatedMetadata = {
+      ...currentProject.metadata,
+      introduction: introduction,
+      introduction_date: new Date().toISOString()
+    };
+
     // Update project with introduction
     const { error: updateError } = await supabase
       .from('projects')
       .update({
-        metadata: {
-          introduction: introduction,
-          introduction_date: new Date().toISOString()
-        },
+        metadata: updatedMetadata,
         updated_at: new Date().toISOString()
       })
       .eq('id', projectId)

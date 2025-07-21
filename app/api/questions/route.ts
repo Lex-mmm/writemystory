@@ -31,8 +31,26 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Set user context for RLS
-    await setUserContext(userId);
+    console.log('Fetching questions for story:', storyId, 'user:', userId);
+
+    // First verify the user has access to this project
+    const { data: projects, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', storyId)
+      .eq('user_id', userId);
+
+    if (projectError) {
+      console.error('Error verifying project access:', projectError);
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+    }
+
+    if (!projects || projects.length === 0) {
+      console.error('No project access for user:', userId, 'story:', storyId);
+      return NextResponse.json({ error: 'Project not found or no access' }, { status: 404 });
+    }
+
+    console.log('Project access verified, fetching questions...');
 
     // Get questions for this story with their answers - updated query
     const { data: questionsData, error: questionsError } = await supabase
@@ -107,8 +125,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Story ID and User ID are required' }, { status: 400 });
     }
 
-    // Set user context for RLS
-    await setUserContext(userId);
+    console.log('POST questions - type:', type, 'storyId:', storyId, 'userId:', userId);
+
+    // Verify user has access to this project
+    const { data: projects, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', storyId)
+      .eq('user_id', userId);
+
+    if (projectError) {
+      console.error('Error verifying project access:', projectError);
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+    }
+
+    if (!projects || projects.length === 0) {
+      console.error('No project access for user:', userId, 'story:', storyId);
+      return NextResponse.json({ error: 'Project not found or no access' }, { status: 404 });
+    }
 
     if (type === "smart") {
       // Redirect to the new smart question generation
