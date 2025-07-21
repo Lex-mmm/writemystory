@@ -95,21 +95,33 @@ export async function getQuestionRecipients(storyId: string): Promise<StoryTeamM
  */
 export async function findLatestQuestionForTeamMember(phoneNumber: string): Promise<QuestionWithStory | null> {
   try {
+    console.log('🔍 Looking for latest question for phone:', phoneNumber);
+    
     // First, find the team member by phone number
-    const { data: teamMember, error: memberError } = await supabaseAdmin
+    const { data: teamMembers, error: memberError } = await supabaseAdmin
       .from('story_team_members')
-      .select('story_id, role')
+      .select('id, story_id, role, name')
       .eq('phone_number', phoneNumber)
-      .eq('status', 'active')
-      .single();
+      .eq('status', 'active');
 
-    if (memberError || !teamMember) {
-      console.log('Team member not found for phone:', phoneNumber);
+    if (memberError || !teamMembers || teamMembers.length === 0) {
+      console.log('❌ Team member not found for phone:', phoneNumber, memberError);
       return null;
     }
 
-    // Find the latest question for this story that doesn't have an answer
-    const { data: question, error: questionError } = await supabaseAdmin
+    console.log('✅ Found team members:', teamMembers.map(m => ({ id: m.id, name: m.name, story_id: m.story_id })));
+
+    // For now, use the first team member (later we can improve this logic)
+    const teamMember = teamMembers[0];
+
+    // Method 1: Try to find questions that were specifically assigned to this team member
+    // (This will work once we implement the question_assignments table)
+    
+    // Method 2: Find the latest question that this team member hasn't answered yet
+    console.log('🔍 Looking for unanswered questions in story:', teamMember.story_id);
+    
+    // Get all questions for this story
+    const { data: allQuestions, error: allQuestionsError } = await supabaseAdmin
       .from('questions')
       .select(`
         id,
@@ -127,24 +139,49 @@ export async function findLatestQuestionForTeamMember(phoneNumber: string): Prom
         )
       `)
       .eq('story_id', teamMember.story_id)
-      .not('id', 'in', `(
-        SELECT question_id FROM answers WHERE story_id = '${teamMember.story_id}'
-      )`)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+      .order('created_at', { ascending: false });
 
-    if (questionError || !question) {
-      console.log('No unanswered questions found for story:', teamMember.story_id);
+    if (allQuestionsError || !allQuestions) {
+      console.log('❌ Error fetching questions:', allQuestionsError);
       return null;
     }
 
+    console.log('📋 Found', allQuestions.length, 'total questions for story');
+
+    // Get all answers for this story to see which questions are already answered
+    const { data: allAnswers, error: answersError } = await supabaseAdmin
+      .from('answers')
+      .select('question_id, user_id, created_at')
+      .eq('story_id', teamMember.story_id);
+
+    if (answersError) {
+      console.log('❌ Error fetching answers:', answersError);
+      return null;
+    }
+
+    console.log('💬 Found', allAnswers?.length || 0, 'total answers for story');
+
+    // Find questions that don't have answers
+    const answeredQuestionIds = new Set((allAnswers || []).map(a => a.question_id));
+    const unansweredQuestions = allQuestions.filter(q => !answeredQuestionIds.has(q.id));
+
+    console.log('❓ Unanswered questions:', unansweredQuestions.length);
+    
+    if (unansweredQuestions.length === 0) {
+      console.log('✅ All questions have been answered!');
+      return null;
+    }
+
+    // Return the most recent unanswered question
+    const latestQuestion = unansweredQuestions[0];
+    console.log('🎯 Selected question:', latestQuestion.id, '-', latestQuestion.question.substring(0, 50) + '...');
+
     return {
-      ...question,
-      story: Array.isArray(question.projects) ? question.projects[0] : question.projects
+      ...latestQuestion,
+      story: Array.isArray(latestQuestion.projects) ? latestQuestion.projects[0] : latestQuestion.projects
     } as QuestionWithStory;
   } catch (error) {
-    console.error('Error in findLatestQuestionForTeamMember:', error);
+    console.error('💥 Error in findLatestQuestionForTeamMember:', error);
     return null;
   }
 }

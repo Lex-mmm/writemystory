@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { questionId } = await request.json();
+    const { questionId, teamMemberIds, storyId, userId } = await request.json();
 
     if (!questionId) {
       return NextResponse.json(
@@ -62,7 +62,32 @@ export async function POST(request: NextRequest) {
     };
 
     // Get team members who should receive this question
-    const recipients = await getQuestionRecipients(question.story_id);
+    let recipients;
+    
+    if (teamMemberIds && teamMemberIds.length > 0) {
+      // Send to specific team members (forwarding mode)
+      console.log('Forwarding question to specific team members:', teamMemberIds);
+      
+      const { data: specificMembers, error: membersError } = await supabaseAdmin
+        .from('story_team_members')
+        .select('*')
+        .eq('story_id', question.story_id)
+        .in('id', teamMemberIds)
+        .eq('status', 'active');
+
+      if (membersError) {
+        console.error('Error fetching specific team members:', membersError);
+        return NextResponse.json(
+          { error: 'Failed to fetch team members' },
+          { status: 500 }
+        );
+      }
+
+      recipients = specificMembers || [];
+    } else {
+      // Send to all eligible team members (default mode)
+      recipients = await getQuestionRecipients(question.story_id);
+    }
 
     if (recipients.length === 0) {
       console.log('No recipients found for story:', question.story_id);

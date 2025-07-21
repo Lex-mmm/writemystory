@@ -1,18 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../lib/supabase';
-
-// Helper function to set user context for RLS
-async function setUserContext(userId: string) {
-  try {
-    await supabase.rpc('set_config', {
-      setting_name: 'app.current_user_id',
-      setting_value: userId,
-      is_local: true
-    });
-  } catch (error) {
-    console.error('Error setting user context:', error);
-  }
-}
+import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 
 // Get team members for a story
 export async function GET(request: NextRequest) {
@@ -28,10 +16,30 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Set user context for RLS
-    await setUserContext(userId);
+    // First, verify that the user owns this story using admin client
+    const { data: project, error: projectError } = await supabaseAdmin
+      .from('projects')
+      .select('user_id')
+      .eq('id', storyId)
+      .single();
 
-    const { data: teamMembers, error } = await supabase
+    if (projectError || !project) {
+      console.error('Error fetching project:', projectError);
+      return NextResponse.json(
+        { error: 'Project not found' },
+        { status: 404 }
+      );
+    }
+
+    if (project.user_id !== userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized: You do not own this project' },
+        { status: 403 }
+      );
+    }
+
+    // Get team members using admin client
+    const { data: teamMembers, error } = await supabaseAdmin
       .from('story_team_members')
       .select('*')
       .eq('story_id', storyId)
@@ -76,11 +84,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Set user context for RLS
-    await setUserContext(userId);
+    // First, verify that the user owns this story using admin client
+    const { data: project, error: projectError } = await supabaseAdmin
+      .from('projects')
+      .select('user_id')
+      .eq('id', storyId)
+      .single();
 
-    // Check if phone number already exists for this story
-    const { data: existingMember } = await supabase
+    if (projectError || !project) {
+      console.error('Error fetching project:', projectError);
+      return NextResponse.json(
+        { error: 'Project not found' },
+        { status: 404 }
+      );
+    }
+
+    if (project.user_id !== userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized: You do not own this project' },
+        { status: 403 }
+      );
+    }
+
+    // Check if phone number already exists for this story using admin client
+    const { data: existingMember } = await supabaseAdmin
       .from('story_team_members')
       .select('id')
       .eq('story_id', storyId)
@@ -94,8 +121,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insert new team member
-    const { data: teamMember, error } = await supabase
+    // Insert new team member using admin client (bypasses RLS)
+    const { data: teamMember, error } = await supabaseAdmin
       .from('story_team_members')
       .insert({
         story_id: storyId,
