@@ -84,7 +84,6 @@ export async function POST(request: NextRequest) {
 
     // Try to extract IDs from the email content or subject
     // Look for our ID pattern in the text content (including quoted content)
-    const idPattern = /ID:\s*([a-f0-9A-F-]+)/gi; // Case insensitive, includes uppercase
     const textContent = text || html || '';
     
     // Try multiple patterns for better matching
