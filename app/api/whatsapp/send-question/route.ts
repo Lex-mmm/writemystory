@@ -6,8 +6,20 @@ import {
   formatQuestionMessage 
 } from '../../../../lib/twilioHelper';
 import { QuestionWithStory } from '../../../../lib/whatsappTypes';
+import WHATSAPP_CONFIG from '../../../../lib/whatsappConfig';
 
 export async function POST(request: NextRequest) {
+  // Check if WhatsApp is enabled
+  if (!WHATSAPP_CONFIG.isAvailable()) {
+    const reason = WHATSAPP_CONFIG.getDisabledReason();
+    console.log('WhatsApp request blocked:', reason);
+    return NextResponse.json({ 
+      error: 'WhatsApp functionality is currently unavailable',
+      reason: reason,
+      fallback: 'Please use email forwarding instead'
+    }, { status: 503 });
+  }
+
   // Build-time protection
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     console.warn('Supabase service role key not available');

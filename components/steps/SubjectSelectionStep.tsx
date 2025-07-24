@@ -1,5 +1,6 @@
 import React from 'react';
 import { ProjectSubject } from '../../lib/storyTypes';
+import CLIENT_WHATSAPP_CONFIG from '../../lib/clientWhatsappConfig';
 
 interface SubjectSelectionStepProps {
   data: ProjectSubject;
@@ -211,43 +212,55 @@ export const SubjectSelectionStep: React.FC<SubjectSelectionStepProps> = ({
                   </div>
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-green-800 mb-2">
-                    📱 WhatsApp chat bestand (.txt)
-                  </label>
-                  <div className="border-2 border-dashed border-green-300 rounded-lg p-4 text-center bg-green-50">
-                    <input
-                      type="file"
-                      accept=".txt"
-                      onChange={handleFileChange}
-                      className="hidden"
-                      id="whatsappFile"
-                    />
-                    <label htmlFor="whatsappFile" className="cursor-pointer">
-                      {data.whatsappChatFile ? (
-                        <div className="text-green-700">
-                          <p className="font-medium">📁 {data.whatsappChatFile.name}</p>
-                          <p className="text-sm">Klik om een ander bestand te selecteren</p>
-                        </div>
-                      ) : (
-                        <div className="text-green-600">
-                          <p className="font-medium">📱 Klik om WhatsApp chat te uploaden</p>
-                          <p className="text-sm">Alleen .txt bestanden</p>
-                        </div>
-                      )}
+                {CLIENT_WHATSAPP_CONFIG.shouldShowWhatsAppFeatures() ? (
+                  <div>
+                    <label className="block text-sm font-medium text-green-800 mb-2">
+                      📱 WhatsApp chat bestand (.txt)
                     </label>
+                    <div className="border-2 border-dashed border-green-300 rounded-lg p-4 text-center bg-green-50">
+                      <input
+                        type="file"
+                        accept=".txt"
+                        onChange={handleFileChange}
+                        className="hidden"
+                        id="whatsappFile"
+                      />
+                      <label htmlFor="whatsappFile" className="cursor-pointer">
+                        {data.whatsappChatFile ? (
+                          <div className="text-green-700">
+                            <p className="font-medium">📁 {data.whatsappChatFile.name}</p>
+                            <p className="text-sm">Klik om een ander bestand te selecteren</p>
+                          </div>
+                        ) : (
+                          <div className="text-green-600">
+                            <p className="font-medium">📱 Klik om WhatsApp chat te uploaden</p>
+                            <p className="text-sm">Alleen .txt bestanden</p>
+                          </div>
+                        )}
+                      </label>
+                    </div>
+                    <div className="mt-2 text-xs text-green-700">
+                      <p><strong>Hoe exporteer je WhatsApp chats:</strong></p>
+                      <ol className="list-decimal list-inside space-y-1 mt-1">
+                        <li>Open het WhatsApp gesprek</li>
+                        <li>Druk op de 3 puntjes (⋮) of naam van de persoon</li>
+                        <li>Selecteer &quot;Exporteer chat&quot;</li>
+                        <li>Kies &quot;Zonder media&quot; voor een snellere upload</li>
+                        <li>Verzend naar jezelf en download het .txt bestand</li>
+                      </ol>
+                    </div>
                   </div>
-                  <div className="mt-2 text-xs text-green-700">
-                    <p><strong>Hoe exporteer je WhatsApp chats:</strong></p>
-                    <ol className="list-decimal list-inside space-y-1 mt-1">
-                      <li>Open het WhatsApp gesprek</li>
-                      <li>Druk op de 3 puntjes (⋮) of naam van de persoon</li>
-                      <li>Selecteer &quot;Exporteer chat&quot;</li>
-                      <li>Kies &quot;Zonder media&quot; voor een snellere upload</li>
-                      <li>Verzend naar jezelf en download het .txt bestand</li>
-                    </ol>
+                ) : (
+                  <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-3 text-center">
+                    <div className="text-yellow-800">
+                      <p className="text-sm font-medium">WhatsApp Upload Tijdelijk Uitgeschakeld</p>
+                      <p className="text-xs mt-1">{CLIENT_WHATSAPP_CONFIG.getDisabledMessage()}</p>
+                      <p className="text-xs mt-2">
+                        <strong>Alternatief:</strong> Je kunt later handmatig extra informatie toevoegen via het project dashboard.
+                      </p>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
           </div>

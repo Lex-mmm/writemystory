@@ -5,8 +5,19 @@ import {
   downloadTwilioMedia 
 } from '../../../../lib/twilioHelper';
 import { TwilioWebhookBody } from '../../../../lib/whatsappTypes';
+import WHATSAPP_CONFIG from '../../../../lib/whatsappConfig';
 
 export async function POST(request: NextRequest) {
+  // Check if WhatsApp is enabled
+  if (!WHATSAPP_CONFIG.isAvailable()) {
+    const reason = WHATSAPP_CONFIG.getDisabledReason();
+    console.log('WhatsApp webhook blocked:', reason);
+    return NextResponse.json({ 
+      error: 'WhatsApp functionality is currently unavailable',
+      reason: reason
+    }, { status: 503 });
+  }
+
   // Build-time protection
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     console.warn('Supabase service role key not available');

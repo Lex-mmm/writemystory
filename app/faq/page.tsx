@@ -1,5 +1,6 @@
 'use client';
 
+import Head from 'next/head';
 import Navigation from '../../components/Navigation';
 import Footer from '../../components/Footer';
 import { useState } from 'react';
@@ -147,6 +148,10 @@ export default function FaqPage() {
 
   return (
     <div>
+      <Head>
+        <title>Veelgestelde vragen - WriteMyStory.ai</title>
+        <meta name="description" content="Vind antwoorden op veelgestelde vragen over WriteMyStory.ai. Van privacy tot prijzen, alles wordt uitgelegd." />
+      </Head>
       <Navigation />
       
       <div className="max-w-4xl mx-auto px-6 py-12">

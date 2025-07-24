@@ -2,6 +2,7 @@
 
 import { useAuth } from '../context/AuthContext';
 import Link from 'next/link';
+import Head from 'next/head';
 import Navigation from '../components/Navigation';
 import Footer from "../components/Footer";
 import Image from "next/image";
@@ -11,6 +12,10 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Head>
+        <title>WriteMyStory.ai - Jouw levensverhaal vastgelegd</title>
+        <meta name="description" content="Herinneringen vervagen, verhalen verdwijnen. Bewaar het levensverhaal van je dierbare – moeiteloos via spraak of WhatsApp." />
+      </Head>
       <Navigation />
 
       {/* Hero Section */}
@@ -110,7 +115,7 @@ export default function HomePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Wij vullen de gaten op</h3>
+              <h3 className="text-xl font-semibold mb-2">Wij helpen de gaten te vullen</h3>
               <p className="text-gray-600">
                 Onze AI herkent ontbrekende stukken en stelt vervolgvragen. Zo wordt je verhaal compleet en samenhangend.
               </p>
@@ -217,64 +222,6 @@ export default function HomePage() {
                   <p className="text-blue-800">&quot;Hoe heb je die eenzaamheid overwonnen? Wanneer begon Amsterdam echt thuis te voelen?&quot;</p>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Testimonials Section */}
-      <div className="py-16 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900">
-              Wat anderen zeggen
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white p-6 rounded-xl shadow-sm">
-              <div className="flex items-center mb-4">
-                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-lg font-bold">
-                  M
-                </div>
-                <div className="ml-4">
-                  <p className="font-medium">Marieke</p>
-                  <p className="text-gray-500 text-sm">Het verhaal van mijn oma</p>
-                </div>
-              </div>
-              <p className="text-gray-600">
-                &quot;De AI stelde vragen waar ik zelf nooit aan gedacht had. Zo kwamen verhalen naar boven die mijn oma bijna vergeten was. Het boek werd veel rijker dan verwacht.&quot;
-              </p>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-sm">
-              <div className="flex items-center mb-4">
-                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-lg font-bold">
-                  J
-                </div>
-                <div className="ml-4">
-                  <p className="font-medium">Johan</p>
-                  <p className="text-gray-500 text-sm">Voor mijn kinderen</p>
-                </div>
-              </div>
-              <p className="text-gray-600">
-                &quot;Ik dacht dat ik een saai leven had, maar door de slimme vragen ontdekte ik hoeveel bijzondere momenten ik eigenlijk had meegemaakt.&quot;
-              </p>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-sm">
-              <div className="flex items-center mb-4">
-                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-lg font-bold">
-                  S
-                </div>
-                <div className="ml-4">
-                  <p className="font-medium">Sandra</p>
-                  <p className="text-gray-500 text-sm">Het verhaal van mijn vader</p>
-                </div>
-              </div>
-              <p className="text-gray-600">
-                &quot;De AI merkte op dat we niets hadden over papa&apos;s jeugd en stelde specifieke vragen die herinneringen naar boven brachten die hij jaren niet had verteld.&quot;
-              </p>
             </div>
           </div>
         </div>

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from 'react';
+import Head from 'next/head';
 import Navigation from '../../components/Navigation';
 import Footer from '../../components/Footer';
 import { useAuth } from '../../context/AuthContext';
+import CLIENT_WHATSAPP_CONFIG from '../../lib/clientWhatsappConfig';
 
 export default function PricingPage() {
   const { user } = useAuth();
@@ -81,11 +83,15 @@ export default function PricingPage() {
     },
     {
       name: 'Basis',
-      description: 'Voor een persoonlijk verhaal via WhatsApp',
+      description: CLIENT_WHATSAPP_CONFIG.shouldShowWhatsAppFeatures() 
+        ? 'Voor een persoonlijk verhaal via WhatsApp' 
+        : 'Voor een persoonlijk verhaal',
       projectPrice: 49,
       priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_BASIC_PROJECT,
       features: [
-        'Input via WhatsApp en browser',
+        CLIENT_WHATSAPP_CONFIG.shouldShowWhatsAppFeatures() 
+          ? 'Input via WhatsApp en browser' 
+          : 'Input via browser en email',
         'AI-gegenereerde tekst',
         'PDF-download van je verhaal',
         'E-mail ondersteuning',
@@ -106,10 +112,12 @@ export default function PricingPage() {
       priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_COMFORT_PROJECT,
       features: [
         'Alles van Basis',
-        'AI-gegenereerde afbeeldingen',
+        'Afbeeldingen uploaden voor je verhaal',
         'Verbeterde lay-out en bewerkingen',
         'Tot 3 revisierondes',
-        'WhatsApp & e-mail ondersteuning'
+        CLIENT_WHATSAPP_CONFIG.shouldShowWhatsAppFeatures()
+          ? 'WhatsApp & e-mail ondersteuning'
+          : 'E-mail ondersteuning'
       ],
       limitations: [],
       cta: 'Kies Comfort',
@@ -158,6 +166,10 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Head>
+        <title>Prijzen - WriteMyStory.ai</title>
+        <meta name="description" content="Kies je verhaal-pakket. Begin gratis en betaal alleen voor complete verhaalprojecten." />
+      </Head>
       <Navigation />
       
       <main className="flex-grow bg-gradient-to-b from-white to-blue-50">
@@ -168,7 +180,7 @@ export default function PricingPage() {
             </h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
               Begin gratis en betaal alleen voor complete verhaalprojecten. 
-              Alle plannen omvatten onze AI-begeleiding en WhatsApp ondersteuning.
+              Alle plannen omvatten onze AI-begeleiding en {CLIENT_WHATSAPP_CONFIG.shouldShowWhatsAppFeatures() ? 'WhatsApp ondersteuning' : 'e-mail ondersteuning'}.
             </p>
           </div>
 

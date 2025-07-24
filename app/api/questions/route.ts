@@ -188,7 +188,12 @@ export async function POST(request: NextRequest) {
       }
 
       // Generate new questions for the story
-      const newQuestions = generateQuestionsForStory(storyId, project?.is_deceased || false);
+      const newQuestions = generateQuestionsForStory(
+        storyId, 
+        project?.is_deceased || false, 
+        project?.subject_type || 'self',
+        project?.person_name
+      );
       
       // Insert questions into Supabase
       const { data: insertedQuestions, error: insertError } = await supabase
@@ -344,37 +349,55 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-function generateQuestionsForStory(storyId: string, isDeceased: boolean = false) {
+function generateQuestionsForStory(
+  storyId: string, 
+  isDeceased: boolean = false, 
+  subjectType: 'self' | 'other' = 'self',
+  personName?: string
+) {
   // Generate factual, biographical questions for comprehensive life documentation
-  // Adjust tense and focus based on whether the person is deceased
+  // Adjust tense and perspective based on whether it's about self or someone else
+  
+  const isSelfStory = subjectType === 'self';
+  const pronoun = isSelfStory ? 'je' : (isDeceased ? 'hij/zij' : 'hij/zij');
+  const possessive = isSelfStory ? 'je' : (isDeceased ? 'zijn/haar' : 'zijn/haar');
+  // const verbForm = isSelfStory ? '' : (isDeceased ? '' : ''); // Will be handled in individual questions - not used currently
   
   const baseQuestions = [
     // Early life & family - FACTUAL
     {
       story_id: storyId,
       category: 'early_life',
-      question: `Waar en wanneer ${isDeceased ? 'werd' : 'ben'} ${isDeceased ? 'hij/zij' : 'je'} geboren? Beschrijf ${isDeceased ? 'zijn/haar' : 'je'} geboorteplaats en -datum.`,
+      question: isSelfStory 
+        ? `Waar en wanneer ben je geboren? Beschrijf je geboorteplaats en -datum.`
+        : `Waar en wanneer ${isDeceased ? 'werd' : 'is'} ${personName || 'hij/zij'} geboren? Beschrijf ${possessive} geboorteplaats en -datum.`,
       type: 'open',
       priority: 1
     },
     {
       story_id: storyId,
       category: 'family',
-      question: `Wat ${isDeceased ? 'waren' : 'zijn'} de namen van ${isDeceased ? 'zijn/haar' : 'je'} ouders en wat was hun beroep?`,
+      question: isSelfStory
+        ? `Wat zijn de namen van je ouders en wat was hun beroep?`
+        : `Wat ${isDeceased ? 'waren' : 'zijn'} de namen van ${possessive} ouders en wat was hun beroep?`,
       type: 'open',
       priority: 2
     },
     {
       story_id: storyId,
       category: 'family',
-      question: `${isDeceased ? 'Had hij/zij' : 'Heb je'} broers of zussen? Wat ${isDeceased ? 'waren' : 'zijn'} hun namen en geboortejaren?`,
+      question: isSelfStory
+        ? `Heb je broers of zussen? Wat zijn hun namen en geboortejaren?`
+        : `${isDeceased ? 'Had' : 'Heeft'} ${personName || pronoun} broers of zussen? Wat ${isDeceased ? 'waren' : 'zijn'} hun namen en geboortejaren?`,
       type: 'open',
       priority: 3
     },
     {
       story_id: storyId,
       category: 'childhood',
-      question: `In welke straat/wijk ${isDeceased ? 'woonde hij/zij' : 'woonde je'} als kind? Beschrijf het huis en de buurt.`,
+      question: isSelfStory
+        ? `In welke straat/wijk woonde je als kind? Beschrijf het huis en de buurt.`
+        : `In welke straat/wijk ${isDeceased ? 'woonde' : 'woont'} ${personName || pronoun} als kind? Beschrijf het huis en de buurt.`,
       type: 'open',
       priority: 4
     },
@@ -383,28 +406,36 @@ function generateQuestionsForStory(storyId: string, isDeceased: boolean = false)
     {
       story_id: storyId,
       category: 'education',
-      question: `Welke scholen ${isDeceased ? 'heeft hij/zij bezocht' : 'heb je bezocht'}? (naam, plaats, jaartallen)`,
+      question: isSelfStory
+        ? `Welke scholen heb je bezocht? (naam, plaats, jaartallen)`
+        : `Welke scholen ${isDeceased ? 'heeft' : 'heeft'} ${personName || pronoun} bezocht? (naam, plaats, jaartallen)`,
       type: 'open',
       priority: 5
     },
     {
       story_id: storyId,
       category: 'education',
-      question: `Welke opleiding(en) ${isDeceased ? 'heeft hij/zij gevolgd' : 'heb je gevolgd'} na de middelbare school?`,
+      question: isSelfStory
+        ? `Welke opleiding(en) heb je gevolgd na de middelbare school?`
+        : `Welke opleiding(en) ${isDeceased ? 'heeft' : 'heeft'} ${personName || pronoun} gevolgd na de middelbare school?`,
       type: 'open',
       priority: 6
     },
     {
       story_id: storyId,
       category: 'education',
-      question: `${isDeceased ? 'Heeft hij/zij' : 'Heb je'} diploma's, certificaten of speciale kwalificaties behaald?`,
+      question: isSelfStory
+        ? `Heb je diploma's, certificaten of speciale kwalificaties behaald?`
+        : `${isDeceased ? 'Heeft' : 'Heeft'} ${personName || pronoun} diploma's, certificaten of speciale kwalificaties behaald?`,
       type: 'open',
       priority: 7
     },
     {
       story_id: storyId,
       category: 'education',
-      question: `In welke vakken of onderwerpen ${isDeceased ? 'excelleerde hij/zij' : 'excelleerde je'} op school?`,
+      question: isSelfStory
+        ? `In welke vakken of onderwerpen excelleerde je op school?`
+        : `In welke vakken of onderwerpen ${isDeceased ? 'excelleerde' : 'excelleert'} ${personName || pronoun} op school?`,
       type: 'open',
       priority: 8
     },
@@ -413,28 +444,36 @@ function generateQuestionsForStory(storyId: string, isDeceased: boolean = false)
     {
       story_id: storyId,
       category: 'career',
-      question: `Wat was ${isDeceased ? 'zijn/haar' : 'je'} eerste baan en bij welk bedrijf? (inclusief jaartallen)`,
+      question: isSelfStory
+        ? `Wat was je eerste baan en bij welk bedrijf? (inclusief jaartallen)`
+        : `Wat was ${possessive} eerste baan en bij welk bedrijf? (inclusief jaartallen)`,
       type: 'open',
       priority: 9
     },
     {
       story_id: storyId,
       category: 'career',
-      question: `Welke carrièrestappen ${isDeceased ? 'heeft hij/zij gemaakt' : 'heb je gemaakt'}? Beschrijf ${isDeceased ? 'zijn/haar' : 'je'} werkgeschiedenis.`,
+      question: isSelfStory
+        ? `Welke carrièrestappen heb je gemaakt? Beschrijf je werkgeschiedenis.`
+        : `Welke carrièrestappen ${isDeceased ? 'heeft' : 'heeft'} ${personName || pronoun} gemaakt? Beschrijf ${possessive} werkgeschiedenis.`,
       type: 'open',
       priority: 10
     },
     {
       story_id: storyId,
       category: 'career',
-      question: `In welke sector/industrie ${isDeceased ? 'heeft hij/zij' : 'heb je'} het grootste deel van ${isDeceased ? 'zijn/haar' : 'je'} carrière gewerkt?`,
+      question: isSelfStory
+        ? `In welke sector/industrie heb je het grootste deel van je carrière gewerkt?`
+        : `In welke sector/industrie ${isDeceased ? 'heeft' : 'heeft'} ${personName || pronoun} het grootste deel van ${possessive} carrière gewerkt?`,
       type: 'open',
       priority: 11
     },
     {
       story_id: storyId,
       category: 'career',
-      question: `Welke functietitels ${isDeceased ? 'heeft hij/zij gehad' : 'heb je gehad'} en wat waren ${isDeceased ? 'zijn/haar' : 'je'} hoofdtaken?`,
+      question: isSelfStory
+        ? `Welke functietitels heb je gehad en wat waren je hoofdtaken?`
+        : `Welke functietitels ${isDeceased ? 'heeft' : 'heeft'} ${personName || pronoun} gehad en wat waren ${possessive} hoofdtaken?`,
       type: 'open',
       priority: 12
     },
@@ -443,28 +482,36 @@ function generateQuestionsForStory(storyId: string, isDeceased: boolean = false)
     {
       story_id: storyId,
       category: 'relationships',
-      question: `${isDeceased ? 'Was hij/zij getrouwd (geweest)' : 'Ben je getrouwd (geweest)'}? Naam van partner(s) en trouwdatum(s)?`,
+      question: isSelfStory
+        ? `Ben je getrouwd (geweest)? Naam van partner(s) en trouwdatum(s)?`
+        : `${isDeceased ? 'Was' : 'Is'} ${personName || pronoun} getrouwd (geweest)? Naam van partner(s) en trouwdatum(s)?`,
       type: 'open',
       priority: 13
     },
     {
       story_id: storyId,
       category: 'family',
-      question: `${isDeceased ? 'Had hij/zij' : 'Heb je'} kinderen? Namen, geboortejaren en hun belangrijkste prestaties?`,
+      question: isSelfStory
+        ? `Heb je kinderen? Namen, geboortejaren en hun belangrijkste prestaties?`
+        : `${isDeceased ? 'Had' : 'Heeft'} ${personName || pronoun} kinderen? Namen, geboortejaren en hun belangrijkste prestaties?`,
       type: 'open',
       priority: 14
     },
     {
       story_id: storyId,
       category: 'general',
-      question: `In welke plaatsen ${isDeceased ? 'heeft hij/zij gewoond' : 'heb je gewoond'} gedurende ${isDeceased ? 'zijn/haar' : 'je'} leven? (inclusief jaartallen)`,
+      question: isSelfStory
+        ? `In welke plaatsen heb je gewoond gedurende je leven? (inclusief jaartallen)`
+        : `In welke plaatsen ${isDeceased ? 'heeft' : 'heeft'} ${personName || pronoun} gewoond gedurende ${possessive} leven? (inclusief jaartallen)`,
       type: 'open',
       priority: 15
     },
     {
       story_id: storyId,
       category: 'general',
-      question: `Welke belangrijke data en mijlpalen ${isDeceased ? 'zou je willen documenteren uit zijn/haar leven' : 'zou je willen documenteren'}?`,
+      question: isSelfStory
+        ? `Welke belangrijke data en mijlpalen zou je willen documenteren?`
+        : `Welke belangrijke data en mijlpalen zou je willen documenteren uit ${possessive} leven?`,
       type: 'open',
       priority: 16
     },
@@ -473,28 +520,36 @@ function generateQuestionsForStory(storyId: string, isDeceased: boolean = false)
     {
       story_id: storyId,
       category: 'achievements',
-      question: `Welke prijzen, onderscheidingen of erkenningen ${isDeceased ? 'heeft hij/zij ontvangen' : 'heb je ontvangen'}?`,
+      question: isSelfStory
+        ? `Welke prijzen, onderscheidingen of erkenningen heb je ontvangen?`
+        : `Welke prijzen, onderscheidingen of erkenningen ${isDeceased ? 'heeft' : 'heeft'} ${personName || pronoun} ontvangen?`,
       type: 'open',
       priority: 17
     },
     {
       story_id: storyId,
       category: 'hobbies',
-      question: `In welke verenigingen, clubs of organisaties ${isDeceased ? 'was hij/zij actief' : 'ben je actief (geweest)'}?`,
+      question: isSelfStory
+        ? `In welke verenigingen, clubs of organisaties ben je actief (geweest)?`
+        : `In welke verenigingen, clubs of organisaties ${isDeceased ? 'was' : 'is'} ${personName || pronoun} actief (geweest)?`,
       type: 'open',
       priority: 18
     },
     {
       story_id: storyId,
       category: 'travel',
-      question: `Naar welke landen of bijzondere plaatsen ${isDeceased ? 'heeft hij/zij gereisd' : 'heb je gereisd'}? (jaartallen)`,
+      question: isSelfStory
+        ? `Naar welke landen of bijzondere plaatsen heb je gereisd? (jaartallen)`
+        : `Naar welke landen of bijzondere plaatsen ${isDeceased ? 'heeft' : 'heeft'} ${personName || pronoun} gereisd? (jaartallen)`,
       type: 'open',
       priority: 19
     },
     {
       story_id: storyId,
       category: 'general',
-      question: `Welke belangrijke historische gebeurtenissen ${isDeceased ? 'heeft hij/zij meegemaakt' : 'heb je meegemaakt'}?`,
+      question: isSelfStory
+        ? `Welke belangrijke historische gebeurtenissen heb je meegemaakt?`
+        : `Welke belangrijke historische gebeurtenissen ${isDeceased ? 'heeft' : 'heeft'} ${personName || pronoun} meegemaakt?`,
       type: 'open',
       priority: 20
     }
@@ -506,35 +561,45 @@ function generateQuestionsForStory(storyId: string, isDeceased: boolean = false)
       {
         story_id: storyId,
         category: 'memorial',
-        question: "Wat waren zijn/haar meest bijzondere karaktereigenschappen die mensen zich herinneren?",
+        question: isSelfStory 
+          ? "Wat waren je meest bijzondere karaktereigenschappen die mensen zich herinneren?"
+          : `Wat waren ${possessive} meest bijzondere karaktereigenschappen die mensen zich herinneren?`,
         type: 'open',
         priority: 21
       },
       {
         story_id: storyId,
         category: 'memorial',
-        question: "Welke wijze woorden, uitspraken of levenslessen deelde hij/zij vaak?",
+        question: isSelfStory
+          ? "Welke wijze woorden, uitspraken of levenslessen deelde je vaak?"
+          : `Welke wijze woorden, uitspraken of levenslessen deelde ${personName || pronoun} vaak?`,
         type: 'open',
         priority: 22
       },
       {
         story_id: storyId,
         category: 'memorial',
-        question: "Wat was zijn/haar grootste passie of wat maakte hem/haar het gelukkigst?",
+        question: isSelfStory
+          ? "Wat was je grootste passie of wat maakte je het gelukkigst?"
+          : `Wat was ${possessive} grootste passie of wat maakte ${personName || pronoun} het gelukkigst?`,
         type: 'open',
         priority: 23
       },
       {
         story_id: storyId,
         category: 'memorial',
-        question: "Welke betekenisvolle herinneringen of tradities blijven voortleven?",
+        question: isSelfStory
+          ? "Welke betekenisvolle herinneringen of tradities blijven voortleven?"
+          : "Welke betekenisvolle herinneringen of tradities blijven voortleven?",
         type: 'open',
         priority: 24
       },
       {
         story_id: storyId,
         category: 'memorial',
-        question: "Hoe zou hij/zij graag herinnerd willen worden?",
+        question: isSelfStory
+          ? "Hoe zou je graag herinnerd willen worden?"
+          : `Hoe zou ${personName || pronoun} graag herinnerd willen worden?`,
         type: 'open',
         priority: 25
       }

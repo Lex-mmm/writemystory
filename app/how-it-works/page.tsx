@@ -1,5 +1,6 @@
 'use client';
 
+import Head from 'next/head';
 import Navigation from '../../components/Navigation';
 import Footer from '../../components/Footer';
 import ContributionGuide from '../../components/ContributionGuide';
@@ -8,6 +9,10 @@ import Link from 'next/link';
 export default function HowItWorksPage() {
   return (
     <div className="min-h-screen flex flex-col">
+      <Head>
+        <title>Hoe het werkt - WriteMyStory.ai</title>
+        <meta name="description" content="Ontdek hoe WriteMyStory.ai je helpt bij het schrijven van je levensverhaal. Van instellen tot het ontvangen van je boek." />
+      </Head>
       <Navigation />
       
       <main className="flex-grow bg-gradient-to-b from-white to-blue-50">

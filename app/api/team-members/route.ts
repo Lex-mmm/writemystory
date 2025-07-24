@@ -47,16 +47,19 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error fetching team members:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch team members' },
+        { success: false, error: 'Failed to fetch team members' },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ teamMembers: teamMembers || [] });
+    return NextResponse.json({ 
+      success: true,
+      teamMembers: teamMembers || [] 
+    });
   } catch (error) {
     console.error('Error in team members GET route:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -65,11 +68,19 @@ export async function GET(request: NextRequest) {
 // Add a new team member to a story
 export async function POST(request: NextRequest) {
   try {
-    const { storyId, userId, name, phoneNumber, role } = await request.json();
+    const { storyId, userId, name, phoneNumber, email, role } = await request.json();
 
-    if (!storyId || !userId || !name || !phoneNumber || !role) {
+    if (!storyId || !userId || !name || !role) {
       return NextResponse.json(
-        { error: 'All fields are required' },
+        { error: 'Story ID, User ID, name and role are required' },
+        { status: 400 }
+      );
+    }
+
+    // Require at least one contact method (WhatsApp or email)
+    if (!phoneNumber && !email) {
+      return NextResponse.json(
+        { error: 'At least one contact method (WhatsApp number or email) is required' },
         { status: 400 }
       );
     }
@@ -105,20 +116,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if phone number already exists for this story using admin client
-    const { data: existingMember } = await supabaseAdmin
-      .from('story_team_members')
-      .select('id')
-      .eq('story_id', storyId)
-      .eq('phone_number', phoneNumber)
-      .single();
-
-    if (existingMember) {
-      return NextResponse.json(
-        { error: 'This phone number is already added to this story' },
-        { status: 409 }
-      );
-    }
+    // Note: Removed duplicate phone number check to allow multiple team members with same number
 
     // Insert new team member using admin client (bypasses RLS)
     const { data: teamMember, error } = await supabaseAdmin
@@ -126,7 +124,8 @@ export async function POST(request: NextRequest) {
       .insert({
         story_id: storyId,
         name,
-        phone_number: phoneNumber,
+        phone_number: phoneNumber || null,
+        email: email || null,
         role,
         status: 'active',
         invited_at: new Date().toISOString(),
@@ -151,6 +150,82 @@ export async function POST(request: NextRequest) {
     console.error('Error in team members POST route:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// Delete a team member
+export async function DELETE(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const memberId = searchParams.get('memberId');
+  const userId = searchParams.get('userId');
+
+  if (!memberId || !userId) {
+    return NextResponse.json(
+      { success: false, error: 'Member ID and User ID are required' },
+      { status: 400 }
+    );
+  }
+
+  try {
+    // First, get the team member to verify ownership
+    const { data: member, error: memberError } = await supabaseAdmin
+      .from('story_team_members')
+      .select('story_id')
+      .eq('id', memberId)
+      .single();
+
+    if (memberError || !member) {
+      return NextResponse.json(
+        { success: false, error: 'Team member not found' },
+        { status: 404 }
+      );
+    }
+
+    // Verify that the user owns the story
+    const { data: project, error: projectError } = await supabaseAdmin
+      .from('projects')
+      .select('user_id')
+      .eq('id', member.story_id)
+      .single();
+
+    if (projectError || !project) {
+      return NextResponse.json(
+        { success: false, error: 'Project not found' },
+        { status: 404 }
+      );
+    }
+
+    if (project.user_id !== userId) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: You do not own this project' },
+        { status: 403 }
+      );
+    }
+
+    // Delete the team member
+    const { error: deleteError } = await supabaseAdmin
+      .from('story_team_members')
+      .delete()
+      .eq('id', memberId);
+
+    if (deleteError) {
+      console.error('Error deleting team member:', deleteError);
+      return NextResponse.json(
+        { success: false, error: 'Failed to delete team member' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Team member deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error in team members DELETE route:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
