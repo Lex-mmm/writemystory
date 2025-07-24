@@ -150,12 +150,32 @@ export async function POST(request: NextRequest) {
 
     console.log('📝 Cleaned response content:', responseContent.substring(0, 100) + '...');
 
+    // Look up team member ID for the database insert
+    let teamMemberId = null;
+    if (from?.email) {
+      console.log('🔍 Looking up team member ID for email:', from.email);
+      const { data: teamMember, error: teamError } = await supabase
+        .from('story_team_members')
+        .select('id, name')
+        .eq('email', from.email)
+        .single();
+
+      if (teamError) {
+        console.error('⚠️ Could not find team member:', teamError);
+      } else if (teamMember) {
+        teamMemberId = teamMember.id;
+        memberName = teamMember.name || memberName; // Use the name from database
+        console.log('✅ Found team member ID:', teamMemberId);
+      }
+    }
+
     // Store the response in the database
     const { data: responseRecord, error: insertError } = await supabase
       .from('email_responses')
       .insert({
         question_id: questionId,
         story_id: storyId,
+        team_member_id: teamMemberId,
         team_member_name: memberName,
         sender_email: from?.email,
         response_content: responseContent,
