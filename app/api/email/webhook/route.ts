@@ -16,10 +16,10 @@ export async function POST(request: NextRequest) {
     console.log('📍 Source IP:', request.headers.get('x-forwarded-for') || 'localhost');
     
     // Get the email data from Resend webhook
-    const emailData = await request.json();
+    const requestData = await request.json();
     
     // Check the event type first
-    const eventType = emailData.type;
+    const eventType = requestData.type;
     console.log('📬 Event Type:', eventType);
     
     // Only process email replies, not delivery confirmations or other events
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     // Only process actual email replies or inbound emails
     if (eventType !== 'email.replied' && eventType !== 'email.received') {
       console.log('⚠️ Unknown event type:', eventType);
-      console.log('📋 Full webhook data:', JSON.stringify(emailData, null, 2));
+      console.log('📋 Full webhook data:', JSON.stringify(requestData, null, 2));
       return NextResponse.json({ 
         success: true, 
         message: `Event ${eventType} not processed`,
@@ -44,8 +44,12 @@ export async function POST(request: NextRequest) {
       });
     }
     
+    // Extract email data from the webhook payload
+    const emailData = requestData.data || requestData;
+    
     console.log('📨 Email Details:');
     console.log('   From:', emailData.from?.email || emailData.from);
+    console.log('   From Name:', emailData.from?.name);
     console.log('   To:', emailData.to?.[0]?.email || emailData.to);
     console.log('   Subject:', emailData.subject);
     console.log('   Message-ID:', emailData['message-id']);
@@ -76,17 +80,33 @@ export async function POST(request: NextRequest) {
     
     let questionId = null;
     let storyId = null;
-    let memberName = from?.name || from?.email;
+    let memberName = from?.name || from?.email || 'Unknown Sender';
 
     // Try to extract IDs from the email content or subject
-    // Look for our ID pattern in the text content
-    const idPattern = /ID:\s*([a-f0-9-]+)/i;
+    // Look for our ID pattern in the text content (including quoted content)
+    const idPattern = /ID:\s*([a-f0-9A-F-]+)/gi; // Case insensitive, includes uppercase
     const textContent = text || html || '';
-    const idMatch = textContent.match(idPattern);
     
-    if (idMatch) {
-      questionId = idMatch[1];
-      console.log('📋 Found question ID:', questionId);
+    // Try multiple patterns for better matching
+    const patterns = [
+      /ID:\s*([a-f0-9A-F-]{36})/gi,  // Standard UUID format
+      /ID:\s*([a-f0-9A-F-]+)/gi,     // Any UUID-like string
+      /question.*id[:\s]*([a-f0-9A-F-]{36})/gi, // "question id: ..."
+      /vraag.*id[:\s]*([a-f0-9A-F-]{36})/gi     // "vraag id: ..." (Dutch)
+    ];
+    
+    for (const pattern of patterns) {
+      const match = textContent.match(pattern);
+      if (match) {
+        // Extract the UUID from the match
+        const uuidMatch = match[0].match(/([a-f0-9A-F-]{36})/);
+        if (uuidMatch) {
+          questionId = uuidMatch[1];
+          console.log('📋 Found question ID with pattern:', pattern.source);
+          console.log('📋 Question ID:', questionId);
+          break;
+        }
+      }
     }
 
     // If we can't find the question ID, try to match by sender email

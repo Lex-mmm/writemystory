@@ -54,3 +54,28 @@ Thumbs.db
 
 # Project-specific files
 TODO.md
+
+# Email setup and sensitive documentation (NEVER commit these)
+EMAIL_SETUP_GUIDE.md
+EMAIL_SETUP.md
+EMAIL_TEST_STATUS.md
+QUESTION_TRACKING_FIX.md
+
+# Debug and test files (keep local only)
+*-debug.js
+*-test.js
+debug-*.js
+test-*.js
+production-test.js
+debug-webhook-test.js
+dashboard-debug.js
+step-by-step-test.js
+simple-test.js
+quick-dashboard-check.js
+add-test-response-browser.js
+full-email-diagnostic.js
+
+# Backup and temporary files
+*.backup
+*.bak
+*.tmp
