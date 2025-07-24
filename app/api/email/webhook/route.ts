@@ -18,6 +18,32 @@ export async function POST(request: NextRequest) {
     // Get the email data from Resend webhook
     const emailData = await request.json();
     
+    // Check the event type first
+    const eventType = emailData.type;
+    console.log('📬 Event Type:', eventType);
+    
+    // Only process email replies, not delivery confirmations or other events
+    if (eventType === 'email.delivered' || eventType === 'email.bounced' || eventType === 'email.opened') {
+      console.log('ℹ️ Ignoring event type:', eventType);
+      console.log('✅ Event acknowledged (no processing needed)');
+      return NextResponse.json({ 
+        success: true, 
+        message: `Event ${eventType} acknowledged`,
+        processed: false 
+      });
+    }
+    
+    // Only process actual email replies or inbound emails
+    if (eventType !== 'email.replied' && eventType !== 'email.received') {
+      console.log('⚠️ Unknown event type:', eventType);
+      console.log('📋 Full webhook data:', JSON.stringify(emailData, null, 2));
+      return NextResponse.json({ 
+        success: true, 
+        message: `Event ${eventType} not processed`,
+        processed: false 
+      });
+    }
+    
     console.log('📨 Email Details:');
     console.log('   From:', emailData.from?.email || emailData.from);
     console.log('   To:', emailData.to?.[0]?.email || emailData.to);
