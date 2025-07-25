@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
     }
 
     let query = supabaseAdmin
-      .from('email_responses_with_details')
+      .from('email_responses')
       .select('*')
       .order('received_at', { ascending: false });
 
