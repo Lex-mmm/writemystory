@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+import { supabaseAdmin } from '../../../../lib/supabaseAdmin';
 
 export async function POST(request: NextRequest) {
   const webhookStartTime = Date.now();
@@ -113,7 +108,7 @@ export async function POST(request: NextRequest) {
       console.log('🔍 Looking up question by sender email:', from?.email);
       
       // Query team members to find associated stories
-      const { data: teamMembers, error: teamError } = await supabase
+      const { data: teamMembers, error: teamError } = await supabaseAdmin
         .from('story_team_members')
         .select('story_id, name')
         .eq('email', from?.email);
@@ -154,7 +149,7 @@ export async function POST(request: NextRequest) {
     let teamMemberId = null;
     if (from?.email) {
       console.log('🔍 Looking up team member ID for email:', from.email);
-      const { data: teamMember, error: teamError } = await supabase
+      const { data: teamMember, error: teamError } = await supabaseAdmin
         .from('story_team_members')
         .select('id, name')
         .eq('email', from.email)
@@ -170,7 +165,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Store the response in the database
-    const { data: responseRecord, error: insertError } = await supabase
+    const { data: responseRecord, error: insertError } = await supabaseAdmin
       .from('email_responses')
       .insert({
         question_id: questionId,
