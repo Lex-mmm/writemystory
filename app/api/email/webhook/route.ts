@@ -103,6 +103,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // If we found a question ID, look up the story ID from the database
+    if (questionId) {
+      console.log('🔍 Looking up story ID for question:', questionId);
+      const { data: question, error: questionError } = await supabaseAdmin
+        .from('questions')
+        .select('story_id')
+        .eq('id', questionId)
+        .single();
+
+      if (questionError) {
+        console.error('⚠️ Could not find question:', questionError);
+        // Don't fail here - we still have the question ID
+      } else if (question) {
+        storyId = question.story_id;
+        console.log('✅ Found story ID from question:', storyId);
+      }
+    }
+
     // If we can't find the question ID, try to match by sender email
     if (!questionId) {
       console.log('🔍 Looking up question by sender email:', from?.email);
