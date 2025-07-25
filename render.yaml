@@ -2,11 +2,14 @@ services:
   - type: web
     name: writemystory-frontend
     env: node
-    buildCommand: npm install && npm run build
+    runtime: node
+    buildCommand: npm ci && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 18.18.0
       - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
