@@ -167,9 +167,9 @@ export async function POST(request: NextRequest) {
         
         const { data: recentQuestions, error: questionsError } = await supabaseAdmin
           .from('questions')
-          .select('id, question, sent_at, created_at')
+          .select('*')
           .eq('story_id', storyId)
-          .order('created_at', { ascending: false })  // Order by creation time instead of sent_at
+          .order('created_at', { ascending: false })  // Order by creation time
           .limit(5);
 
         console.log('🔍 Questions query result:', { recentQuestions, questionsError });
@@ -177,18 +177,25 @@ export async function POST(request: NextRequest) {
         if (questionsError) {
           console.error('⚠️ Error finding recent questions:', questionsError);
         } else if (recentQuestions && recentQuestions.length > 0) {
+          // Debug: show what columns are available
+          console.log('🔍 Available columns in questions table:', Object.keys(recentQuestions[0]));
+          
           // Use the most recent question (by creation time)
           questionId = recentQuestions[0].id;
           console.log('✅ Found recent question ID by team member lookup:', questionId);
-          console.log('📋 Question preview:', recentQuestions[0].question.substring(0, 60) + '...');
+          console.log('📋 Question preview:', recentQuestions[0].question?.substring(0, 60) + '...');
           console.log('📅 Question created at:', recentQuestions[0].created_at);
-          console.log('📤 Question sent at:', recentQuestions[0].sent_at || 'Not sent yet');
+          
+          // Check different possible column names for sent timestamp
+          const sentTimestamp = recentQuestions[0].sent_at || recentQuestions[0].sentAt || recentQuestions[0].sent_timestamp;
+          console.log('📤 Question sent at:', sentTimestamp || 'Not sent yet');
           
           // Show all recent questions for context
           console.log('📋 All recent questions for this story:');
           recentQuestions.forEach((q, idx) => {
-            const status = q.sent_at ? `sent ${q.sent_at}` : 'not sent yet';
-            console.log(`   ${idx + 1}. ${q.id} - "${q.question.substring(0, 40)}..." (${status})`);
+            const timestamp = q.sent_at || q.sentAt || q.sent_timestamp;
+            const status = timestamp ? `sent ${timestamp}` : 'not sent yet';
+            console.log(`   ${idx + 1}. ${q.id} - "${q.question?.substring(0, 40)}..." (${status})`);
           });
         } else {
           console.log('⚠️ No questions found for this story');
