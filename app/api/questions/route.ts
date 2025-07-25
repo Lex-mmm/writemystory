@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, isSupabaseConfigured } from '../../../lib/supabase';
-import { PostmarkService } from '../../../lib/postmarkService';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { PostmarkService } from '@/lib/postmarkService';
 
 // Helper function to set user context for RLS
 async function setUserContext(userId: string) {
