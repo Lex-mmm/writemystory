@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PostmarkService } from '../postmark';
+import { PostmarkService } from '../../../lib/emailService';
 
 export async function POST() {
   console.log('🧪 Testing Postmark email system...');
