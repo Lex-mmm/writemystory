@@ -50,6 +50,26 @@ export async function POST(request: NextRequest) {
     console.log('   Message-ID:', emailData['message-id']);
     console.log('   Content Length:', emailData.text?.length || 0, 'chars');
     
+    // Enhanced logging for real email debugging
+    const isTestEmail = emailData.text?.includes('TEST') || 
+                       emailData.text?.includes('Debug') || 
+                       emailData.text?.includes('Direct test') ||
+                       emailData['message-id']?.includes('test') ||
+                       emailData['message-id']?.includes('debug');
+    
+    console.log('🔍 Email Type:', isTestEmail ? 'TEST EMAIL' : 'REAL EMAIL');
+    
+    if (!isTestEmail) {
+      console.log('🌐 ========== REAL EMAIL ANALYSIS ==========');
+      console.log('📧 Full text content:');
+      console.log(emailData.text || 'No text content');
+      console.log('📧 Full HTML content:');
+      console.log(emailData.html || 'No HTML content');
+      console.log('📧 Full subject:');
+      console.log(emailData.subject || 'No subject');
+      console.log('=========================================');
+    }
+    
     // Log full data in development
     if (process.env.NODE_ENV === 'development') {
       console.log('📋 Full webhook data:', JSON.stringify(emailData, null, 2));
