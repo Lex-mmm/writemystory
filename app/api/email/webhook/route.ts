@@ -144,6 +144,7 @@ export async function POST(request: NextRequest) {
     // If we can't find the question ID, try to match by sender email and find recent questions
     if (!questionId) {
       console.log('🔍 No question ID found in email content. Looking up by sender email:', from?.email);
+      console.log('📧 Email from object:', JSON.stringify(from, null, 2));
       
       // Query team members to find associated stories
       const { data: teamMembers, error: teamError } = await supabaseAdmin
@@ -151,12 +152,15 @@ export async function POST(request: NextRequest) {
         .select('story_id, name')
         .eq('email', from?.email);
 
+      console.log('🔍 Team member query result:', { teamMembers, teamError });
+
       if (teamError) {
         console.error('Error querying team members:', teamError);
       } else if (teamMembers && teamMembers.length > 0) {
         storyId = teamMembers[0].story_id;
         memberName = teamMembers[0].name || memberName;
         console.log('📚 Found story ID from team member:', storyId);
+        console.log('👤 Found member name from database:', memberName);
         
         // Try to find the most recent question for this story (including unsent questions)
         console.log('🔍 Looking for recent questions in story', storyId);
@@ -167,6 +171,8 @@ export async function POST(request: NextRequest) {
           .eq('story_id', storyId)
           .order('created_at', { ascending: false })  // Order by creation time instead of sent_at
           .limit(5);
+
+        console.log('🔍 Questions query result:', { recentQuestions, questionsError });
 
         if (questionsError) {
           console.error('⚠️ Error finding recent questions:', questionsError);
@@ -186,11 +192,22 @@ export async function POST(request: NextRequest) {
           });
         } else {
           console.log('⚠️ No questions found for this story');
+          console.log('🔍 Story ID used for query:', storyId);
         }
       } else {
         console.log('⚠️ Team member not found for email:', from?.email);
+        console.log('🔍 Available team members (if any):', teamMembers);
       }
+    } else {
+      console.log('✅ Question ID was found in email content:', questionId);
     }
+
+    // Summary of what we found
+    console.log('📊 QUESTION LOOKUP SUMMARY:');
+    console.log(`   Question ID: ${questionId || 'NULL - This is the problem!'}`);
+    console.log(`   Story ID: ${storyId || 'NULL'}`);
+    console.log(`   Member Name: ${memberName || 'NULL'}`);
+    console.log(`   Sender Email: ${from?.email || 'NULL'}`);
 
     // Extract the actual response content (remove quoted text)
     let responseContent = text || html || '';
