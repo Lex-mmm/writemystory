@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     if (isPostmark) {
       return await handlePostmarkWebhook(requestData as PostmarkInboundEmail, webhookStartTime);
     } else if (isResend) {
-      return await handleResendWebhook(requestData as ResendEmailData, webhookStartTime);
+      return await handleResendWebhook(requestData as ResendEmailData);
     } else {
       console.log('⚠️ Unknown webhook format');
       console.log('📋 Full webhook data:', JSON.stringify(requestData, null, 2));
@@ -132,7 +132,7 @@ async function handlePostmarkWebhook(emailData: PostmarkInboundEmail, webhookSta
   // Try to extract Question ID from various sources
   let questionId = null;
   let storyId = null;
-  let memberName = from.name || 'Unknown';
+  const memberName = from.name || 'Unknown';
 
   // Method 1: Check custom headers (if present)
   const questionHeader = emailData.Headers?.find(h => h.Name === 'X-WriteMyStory-Question-ID');
@@ -206,7 +206,7 @@ async function handlePostmarkWebhook(emailData: PostmarkInboundEmail, webhookSta
   });
 }
 
-async function handleResendWebhook(requestData: ResendEmailData, webhookStartTime: number) {
+async function handleResendWebhook(requestData: ResendEmailData) {
   console.log('📨 Processing RESEND webhook');
   
   // Check the event type first
