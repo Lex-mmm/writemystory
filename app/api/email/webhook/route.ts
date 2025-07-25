@@ -141,9 +141,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If we can't find the question ID, try to match by sender email
+    // If we can't find the question ID, try to match by sender email and find recent questions
     if (!questionId) {
-      console.log('🔍 Looking up question by sender email:', from?.email);
+      console.log('🔍 No question ID found in email content. Looking up by sender email:', from?.email);
       
       // Query team members to find associated stories
       const { data: teamMembers, error: teamError } = await supabaseAdmin
@@ -154,10 +154,43 @@ export async function POST(request: NextRequest) {
       if (teamError) {
         console.error('Error querying team members:', teamError);
       } else if (teamMembers && teamMembers.length > 0) {
-        // For now, we'll assume the latest email is related to their most recent story
         storyId = teamMembers[0].story_id;
         memberName = teamMembers[0].name || memberName;
         console.log('📚 Found story ID from team member:', storyId);
+        
+        // Try to find the most recent question sent to this story within the last 7 days
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        
+        console.log('🔍 Looking for recent questions in story', storyId, 'sent after', oneWeekAgo.toISOString());
+        
+        const { data: recentQuestions, error: questionsError } = await supabaseAdmin
+          .from('questions')
+          .select('id, question, sent_at')
+          .eq('story_id', storyId)
+          .gte('sent_at', oneWeekAgo.toISOString())
+          .order('sent_at', { ascending: false })
+          .limit(5);
+
+        if (questionsError) {
+          console.error('⚠️ Error finding recent questions:', questionsError);
+        } else if (recentQuestions && recentQuestions.length > 0) {
+          // Use the most recent question
+          questionId = recentQuestions[0].id;
+          console.log('✅ Found recent question ID by team member lookup:', questionId);
+          console.log('📋 Question preview:', recentQuestions[0].question.substring(0, 60) + '...');
+          console.log('📅 Question sent at:', recentQuestions[0].sent_at);
+          
+          // Show all recent questions for context
+          console.log('📋 All recent questions for this story:');
+          recentQuestions.forEach((q, idx) => {
+            console.log(`   ${idx + 1}. ${q.id} - "${q.question.substring(0, 40)}..." (${q.sent_at})`);
+          });
+        } else {
+          console.log('⚠️ No recent questions found for this story within the last week');
+        }
+      } else {
+        console.log('⚠️ Team member not found for email:', from?.email);
       }
     }
 
