@@ -1618,6 +1618,66 @@ export default function ProjectPage() {
             </div>
           </div>
 
+          {/* Unmatched Email Responses Section */}
+          {(() => {
+            const unmatchedResponses = emailResponses.filter(response => !response.question_id);
+            return unmatchedResponses.length > 0 ? (
+              <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                    📧 Ontvangen antwoorden ({unmatchedResponses.length})
+                  </h2>
+                  <div className="text-sm text-gray-600">
+                    Antwoorden die niet aan een specifieke vraag gekoppeld zijn
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  {unmatchedResponses.map((response) => (
+                    <div key={response.id} className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-400">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-blue-800">
+                          {response.team_member_name}
+                        </span>
+                        <span className="text-xs text-blue-600">
+                          {new Date(response.created_at).toLocaleDateString('nl-NL', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                        {response.response_content}
+                      </p>
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          response.status === 'received' ? 'bg-yellow-100 text-yellow-800' :
+                          response.status === 'reviewed' ? 'bg-blue-100 text-blue-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {response.status === 'received' ? '📥 Ontvangen' :
+                           response.status === 'reviewed' ? '👀 Bekeken' :
+                           '✅ Verwerkt'}
+                        </span>
+                        <button
+                          onClick={() => {
+                            // Mark as reviewed
+                            // TODO: Implement status update
+                            console.log('Mark as reviewed:', response.id);
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          Als bekeken markeren
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null;
+          })()}
+
           {/* Story Preview Section */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-8">
             <div className="flex items-center justify-between mb-4">

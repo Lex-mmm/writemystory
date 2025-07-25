@@ -32,6 +32,22 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Any files containing secrets or API tokens
+*secret*
+*token*
+*key*
+*password*
+*credentials*
+*config*.local
+*postmark*
+*resend*
+
+# Sensitive configuration files
+config.json
+secrets.json
+credentials.json
+api-keys.json
+
 # vercel
 .vercel
 
@@ -60,22 +76,51 @@ EMAIL_SETUP_GUIDE.md
 EMAIL_SETUP.md
 EMAIL_TEST_STATUS.md
 QUESTION_TRACKING_FIX.md
+EMAIL_SYSTEM_TEST_RESULTS.md
+YOUR_SPECIFIC_DNS_RECORDS.md
+POSTMARK_*.md
+CLOUDFLARE_*.md
+RENDER_DNS_SETUP_GUIDE.md
+SYSTEM_VERIFICATION_*.md
+EMAIL_SYSTEM_COMPLETE.md
+SECURITY_MIGRATION.md
+RESEND_*.md
+EMAIL_AUTOMATION_SETUP.md
+email-test-setup.md
+cloudflare-email-setup.md
 
-# Debug and test files (keep local only)
-*-debug.js
-*-test.js
-debug-*.js
+# All setup and configuration guides (contain sensitive info)
+*_SETUP*.md
+*_GUIDE*.md
+*_CHECKLIST*.md
+*_COMPLETE*.md
+*_INSTRUCTIONS*.md
+*WHATSAPP*.md
+*URGENT*.md
+
+# Test scripts and diagnostic files (may contain secrets or sensitive data)
 test-*.js
-production-test.js
-debug-webhook-test.js
-dashboard-debug.js
-step-by-step-test.js
-simple-test.js
-quick-dashboard-check.js
-add-test-response-browser.js
-full-email-diagnostic.js
+test-*.mjs
+*-test.js
+*-diagnostic.js
+*-monitoring.js
+comprehensive-test.sh
+test-email.sh
+check-*.js
+diagnose-*.js
+verify-*.js
+send-*.js
+setup-*.js
+apply-*.js
+get-*.js
+add-*.js
+email-*.js
+webhook-*.js
 
-# Backup and temporary files
+# All shell scripts (may contain sensitive commands)
+*.sh
+
+# All temporary and backup files
 *.backup
 *.bak
 *.tmp

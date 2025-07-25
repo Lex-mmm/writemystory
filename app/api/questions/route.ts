@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabase';
+import { PostmarkService } from '../../../lib/postmarkService';
 
 // Helper function to set user context for RLS
 async function setUserContext(userId: string) {
@@ -740,27 +741,98 @@ async function sendQuestionsViaEmail(userId: string, storyId: string, questions:
   category: string;
 }>) {
   try {
-    // In production, implement actual email sending
-    console.log(`Sending ${questions.length} questions via email for story ${storyId} to user ${userId}`);
+    console.log(`📧 Sending ${questions.length} questions via Postmark email for story ${storyId} to user ${userId}`);
     
-    // Generate the email HTML content
-    const emailHtml = generateQuestionEmail(questions, storyId);
+    // Get project info to personalize the email
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('person_name, subject_type')
+      .eq('id', storyId)
+      .single();
+
+    if (projectError) {
+      console.error('⚠️ Could not fetch project info:', projectError);
+    }
+
+    const personName = project?.person_name || 'je verhaal';
+    const isOwn = project?.subject_type === 'self';
     
-    console.log('Email would be sent with content length:', emailHtml.length);
+    // Get team members for this story to send to
+    const { data: teamMembers, error: teamError } = await supabase
+      .from('story_team_members')
+      .select('email, name')
+      .eq('story_id', storyId);
+
+    if (teamError) {
+      console.error('⚠️ Could not fetch team members:', teamError);
+      return false;
+    }
+
+    if (!teamMembers || teamMembers.length === 0) {
+      console.log('ℹ️ No team members found for story, skipping email sending');
+      return true; // Not an error, just no team members
+    }
+
+    console.log(`📮 Found ${teamMembers.length} team members to send questions to`);
+
+    // Initialize Postmark service
+    const postmarkService = new PostmarkService();
     
-    // Here you would integrate with your email service (SendGrid, Mailgun, etc.)
-    // Example implementation:
-    // const emailService = new EmailService();
-    // await emailService.send({
-    //   to: getUserEmail(userId),
-    //   subject: 'Nieuwe vragen voor je levensverhaal',
-    //   html: emailHtml
-    // });
+    // Send emails to each team member
+    const emailPromises = teamMembers.map(async (member) => {
+      try {
+        console.log(`📤 Sending questions to team member: ${member.name} (${member.email})`);
+        
+        const result = await postmarkService.sendMultipleQuestionsEmail({
+          to: member.email,
+          memberName: member.name || 'Team Member',
+          questions: questions,
+          storyId,
+          personName,
+          isOwnStory: isOwn
+        });
+        
+        if (result.success) {
+          console.log(`✅ Email sent successfully to ${member.email}, Message ID: ${result.messageId}`);
+          
+          // Mark questions as sent
+          for (const question of questions) {
+            await supabase
+              .from('questions')
+              .update({ 
+                sent_at: new Date().toISOString(),
+                status: 'sent'
+              })
+              .eq('id', question.id);
+          }
+          
+          return { success: true, email: member.email, messageId: result.messageId };
+        } else {
+          console.error(`❌ Failed to send email to ${member.email}:`, result.error);
+          return { success: false, email: member.email, error: result.error };
+        }
+      } catch (error) {
+        console.error(`❌ Error sending email to ${member.email}:`, error);
+        return { success: false, email: member.email, error: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    });
+
+    const results = await Promise.allSettled(emailPromises);
     
-    return Promise.resolve(true);
+    const successCount = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+    const failCount = results.length - successCount;
+    
+    console.log(`📊 Email sending summary: ${successCount} successful, ${failCount} failed out of ${results.length} total`);
+    
+    if (failCount > 0) {
+      console.warn('⚠️ Some emails failed to send. Check logs above for details.');
+    }
+    
+    return successCount > 0; // Return true if at least one email was sent successfully
+    
   } catch (error) {
-    console.error('Error in sendQuestionsViaEmail:', error);
-    return Promise.resolve(false);
+    console.error('❌ Error in sendQuestionsViaEmail:', error);
+    return false;
   }
 }
 
